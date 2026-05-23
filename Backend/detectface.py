@@ -9,7 +9,7 @@ model = YOLO("detectface.pt")
 # =========================
 # เปิดวิดีโอ input
 # =========================
-video_path = "/Users/sutinan/Documents/NON-Autos Mine_NEWV/Video/VDO3.mp4"
+video_path = "/Users/sutinan/Documents/NON-Autos-Mine_V.4/Video/VDO3.mp4"
 cap = cv2.VideoCapture(video_path)
 
 if not cap.isOpened():
@@ -39,9 +39,33 @@ while True:
     results = model(frame)
 
     # =========================
-    # วาดกรอบ (bounding box)
+    # วาดกรอบ (bounding box) — กรองด้วย confidence threshold
     # =========================
-    annotated_frame = results[0].plot()
+    conf_threshold = 0.6
+    annotated_frame = frame.copy()
+
+    if len(results) > 0 and hasattr(results[0], 'boxes') and results[0].boxes is not None:
+        try:
+            boxes = results[0].boxes.xyxy.cpu().numpy()
+            confs = results[0].boxes.conf.cpu().numpy()
+            classes = results[0].boxes.cls.cpu().numpy().astype(int)
+        except Exception:
+            boxes = []
+            confs = []
+            classes = []
+
+        for i, conf in enumerate(confs):
+            if conf >= conf_threshold:
+                x1, y1, x2, y2 = boxes[i].astype(int)
+                cls_id = int(classes[i]) if len(classes) > i else -1
+                try:
+                    class_name = model.names[cls_id]
+                except Exception:
+                    class_name = str(cls_id)
+
+                label = f"{class_name} {conf:.2f}"
+                cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(annotated_frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
     # =========================
     # เขียนลงไฟล์ output
