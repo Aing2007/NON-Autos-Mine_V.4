@@ -33,7 +33,7 @@ print("Loading models...")
 
 model_human = YOLO("yolo11n.pt")        # ตรวจจับคน (class 0)
 model_face  = YOLO("detectface.pt")     # ตรวจจับใบหน้า
-model_pose  = YOLO("pose.pt")           # ประเมิน pose
+model_pose  = YOLO("yolo11n-pose.pt")           # ประเมิน pose
 
 print("✅ All 3 models loaded")
 print("=" * 50)
