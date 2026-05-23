@@ -1,0 +1,1338 @@
+<!doctype html>
+<html lang="th">
+
+<head>
+    <meta charset="utf-8" />
+    <title>เกมรู้จักใบหน้า</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+            background: #111;
+            overflow: hidden;
+        }
+
+        /* ---- Split screen layout ---- */
+        .split-container {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+        }
+
+        /* Left panel: shows the emotion image (the question) */
+        .split-left {
+            width: 50vw;
+            height: 100vh;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            position: relative;
+            z-index: 2;
+            box-shadow: 4px 0 24px rgba(0, 0, 0, 0.18);
+        }
+
+        /* Right panel: shows the camera + AI bounding boxes */
+        .split-right {
+            width: 50vw;
+            height: 100vh;
+            background: #111;
+            position: relative;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        /* ---- Left panel contents ---- */
+        .level-badge {
+            position: absolute;
+            top: 18px;
+            left: 24px;
+            background: #7172DC;
+            color: #fff;
+            font-weight: 800;
+            font-size: 1rem;
+            padding: 6px 16px;
+            border-radius: 999px;
+            letter-spacing: 0.05em;
+        }
+
+        .question-img {
+            max-width: 70%;
+            max-height: 55vh;
+            object-fit: contain;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(113, 114, 220, 0.18);
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .question-label {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #333;
+            text-align: center;
+            padding: 0 24px;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .tts-btn {
+            background: #f0f0ff;
+            border: 2px solid #7172DC;
+            color: #7172DC;
+            font-size: 1rem;
+            font-weight: 700;
+            padding: 8px 20px;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .tts-btn:hover {
+            background: #e0e0ff;
+        }
+
+        /* ---- Right panel: camera stage ---- */
+        .stage {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #111;
+        }
+
+        video,
+        canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        video {
+            object-fit: contain;
+            background: #111;
+            transform: scaleX(-1);
+            /* mirror the camera */
+        }
+
+        #overlay {
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        /* ---- Mini TM Pose preview (top-right of camera) ---- */
+        .tm-mini {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 25%;
+            aspect-ratio: 4/3;
+            background: rgba(0, 0, 0, 0.32);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 14px;
+            overflow: hidden;
+            z-index: 40;
+            pointer-events: none;
+        }
+
+        .tm-mini canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .tm-badge {
+            position: absolute;
+            left: 10px;
+            top: 10px;
+            z-index: 41;
+            background: rgba(0, 0, 0, 0.55);
+            color: #fff;
+            font-weight: 700;
+            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            pointer-events: none;
+        }
+
+        /* ---- Pose label list (hidden visually, used for debug) ---- */
+        #pose-label-container {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 30;
+            background: rgba(0, 0, 0, 0.35);
+            border-radius: 10px;
+            padding: 8px 12px;
+            color: #fff;
+            font-size: 0.75rem;
+            display: none;
+            /* set to block to show pose debug info */
+        }
+
+        
+
+        .results-title {
+            font-weight: 800;
+            margin: 0 0 8px;
+            font-size: 13px;
+            opacity: 0.9;
+        }
+
+        .bar-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 6px 0;
+        }
+
+        .bar-label {
+            width: 38%;
+            font-size: 12px;
+            opacity: 0.85;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .bar {
+            flex: 1;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .bar>.fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #60a5fa, #22c55e);
+            transition: width 0.25s ease-out;
+        }
+
+        .bar-val {
+            width: 40px;
+            text-align: right;
+            font-size: 12px;
+            opacity: 0.85;
+        }
+
+        /* ---- HUD (camera stats) ---- */
+        .hud {
+            position: absolute;
+            left: 8px;
+            bottom: 5px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.30);
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 0.7rem;
+            color: #fff;
+            z-index: 10;
+        }
+
+        .badge {
+            padding: 2px 6px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 4px;
+            background: #b33;
+        }
+
+        .dot.on {
+            background: #29c26f;
+        }
+
+        /* ---- Next button (bottom-right of camera panel) ---- */
+        .next-btn {
+            position: absolute;
+            right: 16px;
+            bottom: 16px;
+            background: #0a502f;
+            color: #fff;
+            border: 1px solid #169b1a;
+            font-weight: 700;
+            font-size: 1rem;
+            padding: 12px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            z-index: 50;
+            transition: transform 0.1s, filter 0.1s;
+        }
+
+        .next-btn:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.1);
+        }
+
+        .next-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* ---- Transition flash overlay ---- */
+        .transition-mask {
+            position: fixed;
+            inset: 0;
+            background: #fff;
+            z-index: 99;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .transition-mask.show {
+            opacity: 1;
+        }
+
+        @media (max-width: 900px) {
+            .split-container {
+                flex-direction: column;
+            }
+
+            .split-left,
+            .split-right {
+                width: 100vw;
+                height: 50vh;
+            }
+
+            .next-btn {
+                font-size: 0.85rem;
+            }
+
+            .hud {
+                font-size: 0.6rem;
+            }
+
+            .tm-mini {
+                width: 36%;
+            }
+
+            .results-panel {
+                width: 42%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- White flash for level transition -->
+    <div class="transition-mask" id="mask"></div>
+
+    <!-- Main split layout -->
+    <div class="split-container">
+
+        <!-- ==================== LEFT PANEL: Question / Emotion image ==================== -->
+        <div class="split-left">
+            <div class="level-badge" id="levelBadge">ด่านที่ 1</div>
+
+            <!-- The emotion image for the current level.
+             This src is swapped automatically by JavaScript when Next is clicked.
+             You do NOT need to change anything here manually. -->
+            <img id="questionImg" class="question-img" src="" alt="รูปโจทย์" />
+
+            <!-- Short text label shown below the image (e.g. "อารมณ์: ร้องไห้") -->
+            <div class="question-label" id="questionLabel"></div>
+
+            <!-- Button to replay TTS for this level -->
+            <button class="tts-btn" onclick="speakCurrentLevel()">🔊 ฟังคำอธิบายอีกครั้ง</button>
+        </div>
+
+        <!-- ==================== RIGHT PANEL: Camera + AI overlay ==================== -->
+        <div class="split-right">
+            <div class="stage">
+                <!-- Live camera feed (mirrored via CSS) -->
+                <video id="video" autoplay playsinline muted></video>
+
+                <!-- Canvas for drawing AI bounding boxes on top of video -->
+                <canvas id="overlay"></canvas>
+
+                <!-- Pose skeleton canvas (drawn by TM Pose library) -->
+                <canvas id="pose-canvas"></canvas>
+
+                <!-- Pose class labels (hidden by default, for debugging) -->
+                <div id="pose-label-container"></div>
+
+                <!-- Mini TM Pose preview window (top-right corner) -->
+
+
+                <!-- Real-time cooperation score bars -->
+                <div class="results-panel" id="resultsPanel">
+                    <p class="results-title" id="resultsTitle">คะแนนความร่วมมือ (สด)</p>
+                    <div id="bars"></div>
+                </div>
+            </div>
+
+            <!-- Camera / WebSocket stats HUD -->
+            <div class="hud">
+                <span class="badge"><span id="wsDot" class="dot"></span><span id="wsStatus">WS:
+                        disconnected</span></span>
+                <span class="badge">Cam: <span id="camInfo">—</span></span>
+                <span class="badge">Tx: <span id="sendFps">0</span> fps</span>
+                <span class="badge">Rx: <span id="recvFps">0</span> fps</span>
+                <span class="badge">Latency: <span id="lat">—</span> ms</span>
+            </div>
+
+            <!-- Next / Finish button -->
+            <button class="next-btn" id="nextBtn" onclick="handleNext()">ถัดไป →</button>
+        </div>
+
+    </div>
+
+    <!-- TensorFlow + Teachable Machine Pose libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js"></script>
+
+    <script>
+        // ============================================================
+        // LEVEL DEFINITIONS
+        // Add or edit levels here. There are 4 levels total.
+        //
+        // For each level:
+        //   image  - path to the emotion image file shown on the LEFT panel
+        //   label  - short text shown below the image (e.g. the emotion name)
+        //   tts    - Thai text that will be read aloud when the level starts
+        //
+        // To change an image, replace the "image" path for that level.
+        // ============================================================
+        const LEVELS = [
+            {
+                // LEVEL 1 IMAGE: replace the path below with your actual image file
+                image: "./image/game/image 67.png",
+                label: "อารมณ์: ร้องไห้",
+                //tts: "ด่านที่หนึ่ง ดูที่รูปภาพทางซ้าย แล้วต่อสีหน้าให้เหมือนกับในรูปได้เลย"
+            },
+            {
+                // LEVEL 2 IMAGE: replace the path below with your actual image file
+                image: "./image/game/image 66.png",
+                label: "อารมณ์: มีความสุข",
+                //tts: "ด่านที่สอง ดูที่รูปภาพทางซ้าย แล้วต่อสีหน้าให้เหมือนกับในรูปได้เลย"
+            },
+            {
+                // LEVEL 3 IMAGE: replace the path below with your actual image file
+                image: "./image/game/image 65.png",
+                label: "อารมณ์: โกรธ",
+                //tts: "ด่านที่สาม ดูที่รูปภาพทางซ้าย แล้วต่อสีหน้าให้เหมือนกับในรูปได้เลย"
+            },
+            {
+                // LEVEL 4 IMAGE: replace the path below with your actual image file
+                image: "./image/game/image 64.png",
+                label: "อารมณ์: แปลกใจ",
+                //tts: "ด่านที่สี่ ด่านสุดท้ายแล้ว ดูที่รูปภาพทางซ้าย แล้วต่อสีหน้าให้เหมือนกับในรูปได้เลย"
+            }
+        ];
+
+        // After the last level, the game will navigate to this page
+        const FINAL_PAGE = "select.html";
+
+        // ============================================================
+        // GLOBAL STATE
+        // ============================================================
+        let currentLevel = 0;          // index 0..3 (levels 1..4)
+        let isSaving = false;          // prevents double-click on Next button
+
+        let boxesA = [];               // human bounding boxes from AI server
+        let boxesB = [];               // animal bounding boxes from AI server
+        let srcW = 0, srcH = 0;        // source resolution from AI server
+
+        window.__latestPose = null;
+        window.__latestPoseTop = null;
+
+        const CoopState = {};
+        const COLOR_POOL = ['#22c55e', '#60a5fa', '#f59e0b', '#f43f5e', '#a78bfa', '#10b981', '#ef4444', '#14b8a6', '#eab308', '#8b5cf6'];
+        let colorIdx = 0;
+        const COLOR_BY_LABEL = {};
+        const colorFor = (label) => {
+            if (!COLOR_BY_LABEL[label]) COLOR_BY_LABEL[label] = COLOR_POOL[colorIdx++ % COLOR_POOL.length];
+            return COLOR_BY_LABEL[label];
+        };
+
+        // Score weighting config
+        const SCORE_CFG = {
+            maxHumanSpeedGood: 0.020,
+            maxAnimalSpeedGood: 0.015,
+            minPresenceMs: 1500,
+            wHumanSteady: 0.45,
+            wAnimalStable: 0.25,
+            wPose: 0.30,
+            sampleWindowMs: 5000
+        };
+
+        // ============================================================
+        // TTS (Text-to-Speech) in Thai using browser Web Speech API
+        // ============================================================
+        function speak(text, onDone) {
+            if (!("speechSynthesis" in window)) { if (onDone) onDone(); return; }
+            speechSynthesis.cancel();
+
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = "th-TH";   // Thai language
+            u.rate = 0.9;
+            u.pitch = 1.1;
+            u.onend = () => { if (onDone) onDone(); };
+            u.onerror = () => { if (onDone) onDone(); };
+
+            // Wait for voices to load if not ready yet
+            const trySpeak = () => {
+                const voices = speechSynthesis.getVoices();
+                // Try to pick a Thai voice if available
+                const thaiVoice = voices.find(v => v.lang.startsWith("th"));
+                if (thaiVoice) u.voice = thaiVoice;
+                speechSynthesis.speak(u);
+            };
+
+            if (speechSynthesis.getVoices().length === 0) {
+                speechSynthesis.onvoiceschanged = trySpeak;
+                setTimeout(trySpeak, 300); // fallback if event never fires
+            } else {
+                trySpeak();
+            }
+        }
+
+        // Re-read TTS for the current level (used by the replay button)
+        function speakCurrentLevel() {
+            speak(LEVELS[currentLevel].tts);
+        }
+
+        // ============================================================
+        // LOAD A LEVEL
+        // Updates the image and label on the left panel, then plays TTS
+        // ============================================================
+        function loadLevel(index) {
+            const level = LEVELS[index];
+
+            // Update level badge text
+            document.getElementById("levelBadge").textContent = `ด่านที่ ${index + 1}`;
+
+            // Swap the image (with a quick fade via CSS animation)
+            const img = document.getElementById("questionImg");
+            img.style.animation = "none";
+            img.offsetHeight; // trigger reflow to restart animation
+            img.style.animation = "";
+            img.src = level.image;
+
+            // Update the label below the image
+            document.getElementById("questionLabel").textContent = level.label;
+
+            // Update Next button label: last level shows "เสร็จสิ้น" instead of "ถัดไป"
+            const btn = document.getElementById("nextBtn");
+            btn.textContent = (index === LEVELS.length - 1) ? "เสร็จสิ้น ✓" : "ถัดไป →";
+
+            // Read TTS for this level
+            speak(level.tts);
+        }
+
+        // ============================================================
+        // HANDLE NEXT BUTTON
+        // 1. Save score for current level to Firestore
+        // 2. If more levels remain: advance to next level
+        // 3. If last level: navigate to index.html
+        // ============================================================
+        async function handleNext() {
+            if (isSaving) return;
+            isSaving = true;
+
+            const btn = document.getElementById("nextBtn");
+            btn.disabled = true;
+            btn.textContent = "กำลังบันทึก…";
+
+            // Finalize the cooperation score for this level
+            const finalMap = finalizeCooperation();
+            renderBars(true);
+            try { sessionStorage.setItem(`finalCoop_level${currentLevel + 1}`, JSON.stringify(finalMap)); } catch { }
+
+            // Get the average score across all animals for this level
+            const scores = Object.values(finalMap);
+            const avgScore = scores.length > 0
+                ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+                : 0;
+
+            // === แก้ไข/คอมเมนต์ ส่วนบันทึกข้อมูลตรงนี้ ===
+            try {
+                /* คอมเมนต์ปิดการทำงานชั่วคราว
+                // Import and call saveGameResult from database.js
+                const { saveGameResult } = await import("./database.js");
+
+                const userId = window.__currentUserId
+                    || sessionStorage.getItem("currentUserId")
+                    || "anonymous";
+
+                // Save this level's score to Firestore
+                await saveGameResult({
+                    userId,
+                    level: currentLevel + 1,   // level 1, 2, 3, or 4
+                    score: avgScore,
+                    extra: {
+                        detailByAnimal: finalMap,
+                        page: location.pathname
+                    }
+                });
+
+                console.log(`Level ${currentLevel + 1} saved. Score: ${avgScore}`);
+                */
+
+            } catch (err) {
+                console.error("Save to Firestore failed:", err);
+                // Show error but still allow continuing
+                // alert("บันทึกผลไม่สำเร็จ แต่จะดำเนินการต่อ"); // คอมเมนต์แจ้งเตือนออกด้วยเพื่อไม่ให้กวนผู้เล่น
+            }
+            // =======================================
+
+            // Reset cooperation state for the next level
+            resetCoopState();
+
+            const isLastLevel = currentLevel >= LEVELS.length - 1;
+
+            if (isLastLevel) {
+                // All levels done: flash white then go to index.html
+                const mask = document.getElementById("mask");
+                mask.classList.add("show");
+                setTimeout(() => { window.location.href = FINAL_PAGE; }, 600);
+            } else {
+                // Go to next level with a white flash transition
+                const mask = document.getElementById("mask");
+                mask.classList.add("show");
+                setTimeout(() => {
+                    currentLevel++;
+                    loadLevel(currentLevel);
+                    mask.classList.remove("show");
+                    btn.disabled = false;
+                    btn.textContent = (currentLevel === LEVELS.length - 1) ? "เสร็จสิ้น ✓" : "ถัดไป →";
+                    isSaving = false;
+                }, 500);
+            }
+        }
+
+        // ============================================================
+        // PAGE LOAD: start camera, WS, pose model, then load level 1
+        // ============================================================
+        window.addEventListener("load", async () => {
+            // Start the game immediately at level 1
+            loadLevel(0);
+
+            // Start camera feed and WebSocket connection to AI server
+            startCameraAndWS();
+
+            // Wait for video to be ready before starting pose model
+            await ensureVideoReady(document.getElementById("video"));
+            initPoseModel();
+            initPoseMiniOverlay();
+
+            // Update score bars every 200ms
+            setInterval(() => renderBars(false), 200);
+        });
+
+        // ============================================================
+        // UTILITY: Wait for camera video to have actual dimensions
+        // ============================================================
+        function ensureVideoReady(video) {
+            return new Promise((resolve) => {
+                const ready = () => video.videoWidth > 0 && video.videoHeight > 0;
+                if (video.readyState >= 2 && ready()) return resolve();
+                let tries = 0;
+                const tick = setInterval(() => {
+                    if (ready() || ++tries > 200) { clearInterval(tick); resolve(); }
+                }, 25);
+                video.addEventListener("canplay", function onCanPlay() {
+                    if (ready()) { video.removeEventListener("canplay", onCanPlay); clearInterval(tick); resolve(); }
+                });
+            });
+        }
+
+        // ============================================================
+        // CAMERA + WEBSOCKET + DRAWING
+        // Opens the camera, connects to AI server via WebSocket,
+        // and draws bounding boxes on the overlay canvas.
+        // ============================================================
+    // ============================================================
+// HiDPI Canvas Fix (ทำให้เส้นคมบนจอ Retina / Full HD)
+// ============================================================
+function setupHiDPICanvas(canvas) {
+    const dpr = window.devicePixelRatio || 1;
+
+    const rect = canvas.getBoundingClientRect();
+
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+
+    const ctx = canvas.getContext("2d");
+
+    // รีเซ็ต transform ก่อน
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    // scale ตาม DPR
+    ctx.scale(dpr, dpr);
+
+    return {
+        ctx,
+        width: rect.width,
+        height: rect.height,
+        dpr
+    };
+}
+    function startCameraAndWS() {
+    const video = document.getElementById("video");
+    const overlay = document.getElementById("overlay");
+
+    let ws;
+    let streaming = false;
+    let waitingReply = false; // ✅ ป้องกัน frame ซ้อน
+
+    async function openCamera() {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "user" },
+            audio: false
+        });
+        video.srcObject = stream;
+        await video.play();
+    }
+
+    const wsURL = "ws://localhost:8000/ws";
+
+    function connectWS() {
+        ws = new WebSocket(wsURL);
+        ws.binaryType = "arraybuffer";
+
+        ws.onopen = () => {
+            document.getElementById("wsDot").classList.add("on");
+            document.getElementById("wsStatus").textContent = "WS: connected";
+        };
+        ws.onclose = () => {
+            document.getElementById("wsDot").classList.remove("on");
+            document.getElementById("wsStatus").textContent = "WS: disconnected";
+            waitingReply = false;
+            setTimeout(connectWS, 2000);
+        };
+        ws.onerror = () => ws.close();
+
+        ws.onmessage = (ev) => {
+            waitingReply = false; // ✅ รับแล้ว พร้อมส่ง frame ใหม่
+            const msg = JSON.parse(ev.data);
+            parseServerMessageToBoxes(msg, video);
+        };
+    }
+
+    // ✅ สร้าง canvas ครั้งเดียว + ลดขนาดที่ส่งเหลือ 640px
+    const sendCanvas = document.createElement("canvas");
+    const sendCtx = sendCanvas.getContext("2d");
+    sendCtx.imageSmoothingEnabled = false;
+    const SEND_WIDTH = 640;
+
+    function sendFrame() {
+        if (!ws || ws.readyState !== 1) return;
+        if (waitingReply) return; // ✅ รอ reply ก่อนค่อยส่งใหม่
+        if (!video.videoWidth) return;
+
+        // ✅ resize canvas แค่เมื่อขนาดเปลี่ยนเท่านั้น
+        const ratio = video.videoHeight / video.videoWidth;
+        const targetW = SEND_WIDTH;
+        const targetH = Math.round(SEND_WIDTH * ratio);
+        if (sendCanvas.width !== targetW || sendCanvas.height !== targetH) {
+            sendCanvas.width = targetW;
+            sendCanvas.height = targetH;
+        }
+
+        sendCtx.drawImage(video, 0, 0, targetW, targetH);
+        sendCanvas.toBlob((blob) => {
+            if (ws.readyState === 1) {
+                ws.send(blob);
+                waitingReply = true; // ✅ รอ reply
+            }
+        }, "image/jpeg", 0.7);
+    }
+
+    function loop() {
+        if (streaming) {
+            sendFrame();
+            requestAnimationFrame(loop);
+        }
+    }
+
+    function drawCornerDiagonals(ctx, x, y, w, h) {
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+
+    ctx.save();
+    ctx.strokeStyle = "rgba(255, 230, 0, 0.9)";
+    ctx.lineWidth = 1.2;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + w, y + h);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(x + w, y);
+    ctx.lineTo(x, y + h);
+    ctx.stroke();
+
+    // จุดกลาง
+    ctx.beginPath();
+    ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = "#FF3333";
+    ctx.fill();
+
+    ctx.restore();
+}
+// ============================================================
+// SPEED TRACKER & GRAPH SYSTEM
+// ============================================================
+
+const speedHistory = new Map();
+// Map<id, { points: [{t, speed}], lastSeen: timestamp, lastCx: number, lastCy: number, lastTime: number, color: string }>
+
+const GRAPH_HISTORY_SEC = 60;
+const GRAPH_EXPIRE_SEC  = 30;
+const GRAPH_W           = 135;
+const GRAPH_H           = 78;
+const GRAPH_PAD = {
+    top: 20,
+    right: 10,
+    bottom: 20,
+    left: 34
+};
+const GRAPH_MARGIN      = 10;
+
+// สีสำหรับแต่ละ ID (วนซ้ำถ้าเกิน)
+const ID_COLORS = [
+    "#00FF88", "#FF6B6B", "#4ECDC4", "#FFE66D",
+    "#A29BFE", "#FD79A8", "#55EFC4", "#FDCB6E",
+    "#74B9FF", "#FF7675"
+];
+const colorAssign = new Map(); // id → color
+let colorIndex = 0;
+
+function getColor(id) {
+    if (!colorAssign.has(id)) {
+        colorAssign.set(id, ID_COLORS[colorIndex % ID_COLORS.length]);
+        colorIndex++;
+    }
+    return colorAssign.get(id);
+}
+
+// ============================================================
+// อัปเดต speed ของแต่ละ ID ทุก frame
+// ============================================================
+function updateSpeedTracker(boxes, scaleX, scaleY, overlayWidth) {
+    const now = performance.now() / 1000; // วินาที
+
+    for (const b of boxes) {
+        const id = b.id ?? "?";
+
+        // คำนวณ cx, cy บน canvas (รวม mirror แล้ว)
+        const cx = overlay.clientWidth - (b.x + b.w / 2) * scaleX;
+        const cy = (b.y + b.h / 2) * scaleY;
+
+        if (!speedHistory.has(id)) {
+            speedHistory.set(id, {
+                points:   [],
+                lastSeen: now,
+                lastCx:   cx,
+                lastCy:   cy,
+                lastTime: now,
+                color:    getColor(id),
+            });
+            continue;
+        }
+
+        const entry = speedHistory.get(id);
+        const dt = now - entry.lastTime;
+
+        if (dt > 0) {
+            const dx = cx - entry.lastCx;
+            const dy = cy - entry.lastCy;
+            const speed = Math.sqrt(dx * dx + dy * dy) / dt; // px/s
+
+            entry.points.push({ t: now, speed });
+
+            // ตัดข้อมูลเก่าเกิน GRAPH_HISTORY_SEC
+            const cutoff = now - GRAPH_HISTORY_SEC;
+            entry.points = entry.points.filter(p => p.t >= cutoff);
+        }
+
+        entry.lastSeen = now;
+        entry.lastCx   = cx;
+        entry.lastCy   = cy;
+        entry.lastTime = now;
+    }
+
+    // ลบ ID ที่ไม่เจอนานเกิน GRAPH_EXPIRE_SEC
+    for (const [id, entry] of speedHistory.entries()) {
+        if (now - entry.lastSeen > GRAPH_EXPIRE_SEC) {
+            speedHistory.delete(id);
+            colorAssign.delete(id);
+        }
+    }
+}
+
+// ============================================================
+// วาดกราฟทุก ID ที่มุมขวาล่าง (เรียงแนวนอน)
+// ============================================================
+function drawSpeedGraphs(ctx, canvasW, canvasH) {
+    const now = performance.now() / 1000;
+    const ids = [...speedHistory.keys()];
+    if (ids.length === 0) return;
+
+    const totalW  = ids.length * (GRAPH_W + GRAPH_MARGIN) - GRAPH_MARGIN;
+    const startX  = canvasW - totalW - GRAPH_MARGIN;
+    const startY  = canvasH - GRAPH_H - GRAPH_MARGIN - 100; //ขยับกราฟขึ้นจากขอบล่างอีกนิดเพื่อไม่ให้ชนกับคะแนน
+
+    ids.forEach((id, i) => {
+        const entry = speedHistory.get(id);
+        const gx = startX + i * (GRAPH_W + GRAPH_MARGIN);
+        const gy = startY;
+        drawSingleGraph(ctx, gx, gy, id, entry, now);
+    });
+}
+
+function drawSingleGraph(ctx, gx, gy, id, entry, now) {
+    const color = entry.color;
+    const pts   = entry.points;
+
+    const iw = GRAPH_W - GRAPH_PAD.left - GRAPH_PAD.right;
+    const ih = GRAPH_H - GRAPH_PAD.top  - GRAPH_PAD.bottom;
+    const ox = gx + GRAPH_PAD.left;
+    const oy = gy + GRAPH_PAD.top;
+
+    ctx.save();
+
+    // พื้นหลัง
+    ctx.fillStyle   = "rgba(0, 0, 0, 0.6)";
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.lineWidth   = 0.5;
+    roundRect(ctx, gx, gy, GRAPH_W, GRAPH_H, 3);
+    ctx.fill();
+    ctx.stroke();
+
+    // ชื่อ ID
+    ctx.fillStyle = color;
+    ctx.font      = "5px monospace";
+    ctx.textAlign = "left";
+    ctx.fillText(`ID ${id}`, gx + 4, gy + 9);
+
+    // speed ล่าสุด
+    const lastSpeed = pts.length > 0 ? pts[pts.length - 1].speed : 0;
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.font      = "5px monospace";
+    ctx.textAlign = "right";
+    ctx.fillText(`${lastSpeed.toFixed(0)}px/s`, gx + GRAPH_W - 3, gy + 9);
+
+    if (pts.length < 2) { ctx.restore(); return; }
+
+    const maxSpeed = Math.max(...pts.map(p => p.speed), 10);
+    const tMin     = now - GRAPH_HISTORY_SEC;
+
+    // แกน X
+    ctx.strokeStyle = "rgba(255,255,255,0.2)";
+    ctx.lineWidth   = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(ox, oy + ih);
+    ctx.lineTo(ox + iw, oy + ih);
+    ctx.stroke();
+
+    // แกน Y
+    ctx.beginPath();
+    ctx.moveTo(ox, oy);
+    ctx.lineTo(ox, oy + ih);
+    ctx.stroke();
+
+    // Y-axis label
+    ctx.fillStyle = "rgba(255,255,255,0.4)";
+    ctx.font      = "4px monospace";
+    ctx.textAlign = "right";
+    ctx.fillText(`${Math.round(maxSpeed)}`, ox - 2, oy + 5);
+    ctx.fillText("0", ox - 2, oy + ih);
+
+    // X-axis label
+    ctx.textAlign = "left";
+    ctx.fillText("0s", ox, oy + ih + 9);
+    ctx.textAlign = "right";
+    ctx.fillText(`${GRAPH_HISTORY_SEC}s`, ox + iw, oy + ih + 9);
+
+    // เส้น speed
+    ctx.beginPath();
+    pts.forEach((p, idx) => {
+        const px = ox + ((p.t - tMin) / GRAPH_HISTORY_SEC) * iw;
+        const py = oy + ih - (p.speed / maxSpeed) * ih;
+        idx === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    });
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 1;
+    ctx.lineJoin    = "round";
+    ctx.stroke();
+
+    ctx.restore();
+}
+
+// helper: วาด rounded rectangle
+function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+}
+
+// ============================================================
+// เขียน ID เหนือกล่อง
+// ============================================================
+function drawLabel(ctx, x, y, id, color) {
+    ctx.save();
+    ctx.font      = "bold 11px monospace";
+    ctx.textAlign = "left";
+    ctx.fillStyle = color;
+    ctx.fillText(`ID ${id}`, x, y - 4);
+    ctx.restore();
+}
+function drawLoop() {
+    const canvasInfo = setupHiDPICanvas(overlay);
+const ctx = canvasInfo.ctx;
+    const draw = () => {
+        ctx.clearRect(0, 0, canvasInfo.width, canvasInfo.height);
+        const vw = video.videoWidth;
+        const vh = video.videoHeight;
+        if (!vw || !vh) return requestAnimationFrame(draw);
+
+       const drawW = canvasInfo.width;
+        const drawH = canvasInfo.height;
+
+        const scaleX = drawW / vw;
+const scaleY = drawH / vh;
+
+        // อัปเดต speed tracker ก่อนวาด
+        updateSpeedTracker(boxesA, scaleX, scaleY, overlay.width);
+
+        for (const b of boxesA) {
+            const x = drawW - ((b.x + b.w) * scaleX);
+            const y = b.y * scaleY;
+            const w = b.w * scaleX;
+            const h = b.h * scaleY;
+
+            const color = getColor(b.id);
+
+            // กรอบ
+            ctx.strokeStyle = color;
+            ctx.lineWidth   = 1.5;
+            ctx.strokeRect(x, y, w, h);
+
+            // เส้นทแยงมุม + จุดกลาง
+            drawCornerDiagonals(ctx, x, y, w, h);
+
+            // Label ID เหนือกล่อง
+            drawLabel(ctx, x, y, b.id, color);
+        }
+
+        for (const b of boxesB) {
+            const x = overlay.width - (b.x + b.w) * scaleX;
+            const y = b.y * scaleY;
+            const w = b.w * scaleX;
+            const h = b.h * scaleY;
+            ctx.strokeStyle = "#3b82f6";
+            ctx.lineWidth   = 1.5;
+            ctx.strokeRect(x, y, w, h);
+        }
+
+        // วาดกราฟทุก ID มุมขวาล่าง
+        drawSpeedGraphs(ctx, drawW, drawH);
+
+        requestAnimationFrame(draw);
+    };
+    requestAnimationFrame(draw);
+}
+
+    openCamera().then(() => {
+        connectWS();
+        streaming = true;
+        loop();
+        drawLoop();
+    });
+}
+
+
+        // ============================================================
+        // PARSE AI SERVER MESSAGE into boxesA (humans) and boxesB (animals)
+        // ============================================================
+        function parseServerMessageToBoxes(msg, video) {
+            const vw = video.videoWidth || 1920;
+            const vh = video.videoHeight || 1080;
+
+            let a = msg.boxesA || msg.boxes_human || msg.humans || [];
+            let b = msg.boxesB || msg.boxes_animal || msg.animals || [];
+
+            if (!a.length && !b.length && Array.isArray(msg.detections)) {
+                const low = s => (s || "").toLowerCase();
+                a = msg.detections.filter(o => low(o.class || o.label) === "human");
+                b = msg.detections.filter(o => low(o.class || o.label) === "animal");
+            }
+            if (!a.length && !b.length && Array.isArray(msg.boxes)) {
+                const all = msg.boxes, low = s => (s || "").toLowerCase();
+                a = all.filter(bb => low(bb.class || bb.label || bb.src).includes("human"));
+                b = all.filter(bb => low(bb.class || bb.label || bb.src).includes("animal"));
+                if (!a.length && !b.length) a = all;
+            }
+
+            if (typeof msg.w === "number") srcW = msg.w;
+            if (typeof msg.h === "number") srcH = msg.h;
+
+            const BW = srcW || vw, BH = srcH || vh;
+            const toPixels = (bb) => {
+                if (!bb) return bb;
+                let x = +bb.x, y = +bb.y, w = +bb.w, h = +bb.h;
+                const norm = (w <= 1.5 && h <= 1.5);
+                return norm ? { ...bb, x: x * BW, y: y * BH, w: w * BW, h: h * BH } : { ...bb, x, y, w, h };
+            };
+            boxesA = (a || []).map(toPixels);
+            boxesB = (b || []).map(toPixels);
+        }
+
+        // ============================================================
+        // GEOMETRY HELPERS
+        // ============================================================
+        function centerOf(b) { return { cx: b.x + b.w / 2, cy: b.y + b.h / 2 }; }
+        function diagOf(w, h) { return Math.hypot(w, h) || 1; }
+        function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+        function clamp100(x) { return Math.max(0, Math.min(100, x)); }
+        function rectCenter(b) { return { x: b.x + b.w / 2, y: b.y + b.h / 2 }; }
+
+        function rectIntersectArea(a, b) {
+            const x1 = Math.max(a.x, b.x), y1 = Math.max(a.y, b.y);
+            const x2 = Math.min(a.x + a.w, b.x + b.w), y2 = Math.min(a.y + a.h, b.y + b.h);
+            return Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+        }
+        function rectIoU(a, b) {
+            const inter = rectIntersectArea(a, b);
+            const union = a.w * a.h + b.w * b.h - inter;
+            return union > 0 ? inter / union : 0;
+        }
+
+        // Pair each detected animal with the nearest/overlapping human
+        function pairAnimalsWithHumans(animals, humans) {
+            const pairs = [];
+            for (const an of animals) {
+                const label = String(an.label || an.class || an.src || "animal");
+
+                // Priority 1: overlapping boxes
+                const overlapCands = humans
+                    .map(h => ({ human: h, area: rectIntersectArea(an, h), iou: rectIoU(an, h) }))
+                    .filter(o => o.area > 0);
+                if (overlapCands.length > 0) {
+                    overlapCands.sort((a, b) => b.area - a.area || b.iou - a.iou);
+                    pairs.push({ label, animal: an, human: overlapCands[0].human });
+                    continue;
+                }
+
+                // Priority 2: animal above human
+                let bestAbove = null, bestDy = Infinity;
+                for (const hu of humans) {
+                    const xOverlap = !(an.x + an.w < hu.x || an.x > hu.x + hu.w);
+                    if ((an.y + an.h <= hu.y) && xOverlap) {
+                        const dy = hu.y - (an.y + an.h);
+                        if (dy < bestDy) { bestDy = dy; bestAbove = hu; }
+                    }
+                }
+                if (bestAbove) { pairs.push({ label, animal: an, human: bestAbove }); continue; }
+
+                // Priority 3: nearest human by center distance
+                const ac = rectCenter(an);
+                let bestNear = null, bestDist = Infinity;
+                for (const hu of humans) {
+                    const hc = rectCenter(hu);
+                    const d = Math.hypot(ac.x - hc.x, ac.y - hc.y);
+                    if (d < bestDist) { bestDist = d; bestNear = hu; }
+                }
+                if (bestNear) pairs.push({ label, animal: an, human: bestNear });
+            }
+            return pairs;
+        }
+
+        // ============================================================
+        // COOPERATION SCORE: computed per animal per frame
+        // ============================================================
+        function updateCooperationForPairs(pairs, nowMs) {
+            const W = srcW || 1920, H = srcH || 1080, diag = diagOf(W, H);
+            const poseProb = (window.__latestPoseTop?.prob || 0);
+
+            for (const { label, animal, human } of pairs) {
+                if (!CoopState[label]) {
+                    CoopState[label] = {
+                        color: colorFor(label),
+                        lastHumanCXN: null, lastHumanCYN: null,
+                        lastAnCXN: null, lastAnCYN: null,
+                        lastT: nowMs,
+                        speedHumanEma: 0, speedAnimalEma: 0,
+                        presentStreakMs: 0,
+                        scoreNow: 0,
+                        samples5s: [],
+                        lastBucketTs: nowMs
+                    };
+                }
+                const st = CoopState[label];
+                const hc = centerOf(human), ac = centerOf(animal);
+                const hxn = hc.cx / W, hyn = hc.cy / H;
+                const axn = ac.cx / W, ayn = ac.cy / H;
+                const dt = Math.max(1, nowMs - (st.lastT || nowMs)) / 1000.0;
+
+                let vH = 0, vA = 0;
+                if (st.lastHumanCXN != null) {
+                    const dh = Math.hypot((st.lastHumanCXN - hxn) * W, (st.lastHumanCYN - hyn) * H) / diag;
+                    vH = dh / dt;
+                }
+                if (st.lastAnCXN != null) {
+                    const da = Math.hypot((st.lastAnCXN - axn) * W, (st.lastAnCYN - ayn) * H) / diag;
+                    vA = da / dt;
+                }
+
+                st.speedHumanEma = (st.lastHumanCXN == null) ? vH : (0.35 * vH + 0.65 * st.speedHumanEma);
+                st.speedAnimalEma = (st.lastAnCXN == null) ? vA : (0.35 * vA + 0.65 * st.speedAnimalEma);
+                st.lastHumanCXN = hxn; st.lastHumanCYN = hyn;
+                st.lastAnCXN = axn; st.lastAnCYN = ayn;
+                st.lastT = nowMs;
+                st.presentStreakMs += (dt * 1000);
+
+                const humanSteady = clamp100(100 * (1 - st.speedHumanEma / SCORE_CFG.maxHumanSpeedGood));
+                const presenceFactor = clamp01(st.presentStreakMs / SCORE_CFG.minPresenceMs);
+                const animalStable = clamp100(100 * (1 - st.speedAnimalEma / SCORE_CFG.maxAnimalSpeedGood)) * presenceFactor;
+                const posePct = clamp100(poseProb * 100);
+
+                st.scoreNow = clamp100(
+                    SCORE_CFG.wHumanSteady * humanSteady +
+                    SCORE_CFG.wAnimalStable * animalStable +
+                    SCORE_CFG.wPose * posePct
+                );
+
+                // Sample score every 5 seconds (for final average)
+                if (nowMs - (st.lastBucketTs || 0) >= SCORE_CFG.sampleWindowMs) {
+                    st.lastBucketTs = nowMs;
+                    st.samples5s.push(Math.round(clamp100(st.scoreNow)));
+                    if (st.samples5s.length > 24) st.samples5s.shift(); // keep last ~2 minutes
+                }
+            }
+
+            // Reset streak for animals no longer in frame
+            const alive = new Set(pairs.map(p => p.label));
+            for (const [label, st] of Object.entries(CoopState)) {
+                if (!alive.has(label)) st.presentStreakMs = 0;
+            }
+
+            window.__coopByAnimal = Object.fromEntries(
+                Object.entries(CoopState).map(([label, st]) => [label, st.scoreNow])
+            );
+        }
+
+        // Compute final average score per animal
+        function finalizeCooperation() {
+            const result = {};
+            for (const [label, st] of Object.entries(CoopState)) {
+                const arr = st.samples5s.length > 0 ? st.samples5s.slice() : [clamp100(st.scoreNow || 0)];
+                result[label] = Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
+            }
+            window.__finalCoopPerAnimal = result;
+            return result;
+        }
+
+        // Reset cooperation state when moving to the next level
+        function resetCoopState() {
+            for (const key of Object.keys(CoopState)) delete CoopState[key];
+            window.__coopByAnimal = {};
+            window.__finalCoopPerAnimal = {};
+            boxesA = []; boxesB = [];
+        }
+
+        // ============================================================
+        // SCORE BAR CHART: renders the real-time or final score bars
+        // ============================================================
+        function renderBars(showFinal = false) {
+            const titleEl = document.getElementById("resultsTitle");
+            const barsEl = document.getElementById("bars");
+            if (!barsEl) return;
+
+            let dataEntries = [];
+            if (showFinal && window.__finalCoopPerAnimal) {
+                titleEl.textContent = "ผลเฉลี่ยด่านนี้";
+                dataEntries = Object.entries(window.__finalCoopPerAnimal)
+                    .map(([label, score]) => ({ label, score, color: CoopState[label]?.color || "#60a5fa" }));
+            } else {
+                titleEl.textContent = "คะแนนความร่วมมือ (สด)";
+                dataEntries = Object.entries(CoopState)
+                    .map(([label, st]) => ({ label, score: Math.round(st.scoreNow || 0), color: st.color || "#60a5fa" }));
+            }
+
+            const existing = new Set();
+            for (const { label, score, color } of dataEntries.sort((a, b) => b.score - a.score)) {
+                existing.add(label);
+                let row = document.getElementById("bar-" + label);
+                if (!row) {
+                    row = document.createElement("div");
+                    row.className = "bar-row";
+                    row.id = "bar-" + label;
+                    row.innerHTML = `<div class="bar-label"></div><div class="bar"><div class="fill"></div></div><div class="bar-val">0%</div>`;
+                    barsEl.appendChild(row);
+                }
+                row.querySelector(".bar-label").textContent = label;
+                const fill = row.querySelector(".fill");
+                fill.style.width = `${score}%`;
+                fill.style.background = `linear-gradient(90deg, ${color}, #22c55e)`;
+                row.querySelector(".bar-val").textContent = `${score}%`;
+            }
+
+            if (!showFinal) {
+                Array.from(barsEl.querySelectorAll(".bar-row")).forEach(row => {
+                    if (!existing.has(row.id.replace("bar-", ""))) row.remove();
+                });
+            }
+        }
+
+        // ============================================================
+        // TM POSE MODEL
+        // Loads the Teachable Machine pose model and runs it in a loop.
+        // Uses the camera video element as input.
+        // ============================================================
+        
+
+        // ============================================================
+        // MINI POSE OVERLAY
+        // Small preview window (top-right of camera) that shows
+        // the mirrored video with the skeleton drawn on top.
+        // ============================================================
+
+    </script>
+</body>
+
+</html>
