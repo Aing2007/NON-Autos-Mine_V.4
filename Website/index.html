@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="th">
+
+<head>
+    <meta charset="utf-8" />
+    <title>AI Detection Monitor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+    <div class="app">
+
+        <!-- ===== HEADER ===== -->
+        <header class="header">
+            <div class="header-title">
+                AI&nbsp;<span>//</span>&nbsp;DETECTION&nbsp;MONITOR
+            </div>
+
+            <!-- WebSocket status -->
+            <div class="ws-pill">
+                <span class="ws-dot" id="wsDot"></span>
+                <span id="wsLabel">DISCONNECTED</span>
+            </div>
+
+            <!-- Model indicators -->
+            <div class="ws-pill" style="border-color:rgba(0,229,255,0.3)">
+                <span style="width:7px;height:7px;border-radius:50%;background:#00e5ff;flex-shrink:0"></span>
+                <span style="font-family:var(--mono);font-size:0.65rem;color:rgba(0,229,255,0.8)">HUMAN</span>
+            </div>
+            <div class="ws-pill" style="border-color:rgba(255,64,129,0.3)">
+                <span style="width:7px;height:7px;border-radius:50%;background:#ff4081;flex-shrink:0"></span>
+                <span style="font-family:var(--mono);font-size:0.65rem;color:rgba(255,64,129,0.8)">FACE</span>
+            </div>
+            <div class="ws-pill" style="border-color:rgba(105,255,71,0.3)">
+                <span style="width:7px;height:7px;border-radius:50%;background:#69ff47;flex-shrink:0"></span>
+                <span style="font-family:var(--mono);font-size:0.65rem;color:rgba(105,255,71,0.8)">POSE</span>
+            </div>
+
+            <div class="header-time" id="clock">00:00:00</div>
+        </header>
+
+        <!-- ===== CAMERA ===== -->
+        <main class="camera-area">
+            <!-- Live feed -->
+            <video id="video" autoplay playsinline muted></video>
+
+            <!-- AI overlay canvas -->
+            <canvas id="overlay"></canvas>
+
+            <!-- Camera offline notice -->
+            <div class="cam-offline" id="camOffline">
+                <div class="cam-offline-icon">📷</div>
+                <div class="cam-offline-text">กรุณาอนุญาตการใช้กล้อง</div>
+            </div>
+
+            <!-- Legend (top-left) -->
+            <div class="cam-legend">
+                <div class="legend-item">
+                    <div class="legend-box" style="background:#00e5ff;border:1px solid #00e5ff"></div>
+                    <span class="legend-label">Human (track)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box" style="border:1px dashed #ff4081"></div>
+                    <span class="legend-label">Face</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box" style="border:1px dotted #69ff47"></div>
+                    <span class="legend-label">Pose + Keypoints</span>
+                </div>
+            </div>
+
+            <!-- Inference time badge (bottom-left) -->
+            <div class="infer-badge" id="inferBadge">
+                inference: <span>—</span> ms
+            </div>
+        </main>
+
+        <!-- ===== STATUS BAR ===== -->
+        <section class="status-bar">
+            <div class="stat-cell">
+                <div class="stat-label">TX fps</div>
+                <div class="stat-value" id="valTxFps">0</div>
+                <div class="stat-sub">camera → server</div>
+            </div>
+            <div class="stat-cell">
+                <div class="stat-label">RX fps</div>
+                <div class="stat-value" id="valRxFps">0</div>
+                <div class="stat-sub">server → browser</div>
+            </div>
+            <div class="stat-cell">
+                <div class="stat-label">Latency</div>
+                <div class="stat-value ok" id="valLat">—</div>
+                <div class="stat-sub">round-trip ms</div>
+            </div>
+            <div class="stat-cell">
+                <div class="stat-label">Infer</div>
+                <div class="stat-value ok" id="valInfer">—</div>
+                <div class="stat-sub">3-model parallel ms</div>
+            </div>
+        </section>
+
+        <!-- ===== SIDEBAR ===== -->
+        <aside class="sidebar">
+
+            <!-- Model counts -->
+            <div class="sidebar-section">
+                <div class="section-title">Detection Count</div>
+
+                <div class="model-row">
+                    <span class="model-dot human"></span>
+                    <span class="model-name">yolo11n · Human</span>
+                    <span class="model-count human" id="countHuman">0</span>
+                </div>
+                <div class="model-row">
+                    <span class="model-dot face"></span>
+                    <span class="model-name">detectface · Face</span>
+                    <span class="model-count face" id="countFace">0</span>
+                </div>
+                <div class="model-row">
+                    <span class="model-dot pose"></span>
+                    <span class="model-name">pose · Pose</span>
+                    <span class="model-count pose" id="countPose">0</span>
+                </div>
+            </div>
+
+            <!-- Detection log -->
+            <div class="sidebar-section" style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+                <div class="section-title">Detection Log</div>
+                <div class="det-log" id="detLog">
+                    <div class="log-entry">
+                        <span class="log-ts">--:--:--</span>
+                        <span class="log-type face">SYS</span>
+                        <span class="log-detail">รอการเชื่อมต่อ…</span>
+                    </div>
+                </div>
+            </div>
+
+        </aside>
+
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
