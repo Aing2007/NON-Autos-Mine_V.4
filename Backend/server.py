@@ -31,25 +31,40 @@ app.add_middleware(
 print("=" * 50)
 print("Loading models...")
 
-model_human = YOLO("yolo11n.pt")        # ตรวจจับคน (class 0)
-model_face  = YOLO("detectface.pt")     # ตรวจจับใบหน้า
-model_pose  = YOLO("yolo11n-pose.pt")           # ประเมิน pose
+model_human = YOLO("yolo11n.pt")
+model_face  = YOLO("detectface.pt")
+model_pose  = YOLO("yolo11n-pose.pt")
 
 print("✅ All 3 models loaded")
 print("=" * 50)
 
-# ThreadPoolExecutor: 3 workers = 3 โมเดลรันพร้อมกัน
+# ======================================================
+# Confidence Thresholds — แก้ได้ที่นี่ที่เดียว
+#
+#   "human"    : ค่าต่ำ → จับได้ไวแต่ false positive เยอะ
+#   "face"     : ค่าสูง → face ที่ชัวร์เท่านั้น
+#   "pose"     : threshold ของ bounding box คน
+#   "keypoint" : ส่งให้ frontend ใช้กรองจุดที่ไม่ชัวร์ออก
+# ======================================================
+CONF = {
+    "human":    0.80,
+    "face":     0.75,
+    "pose":     0.60,
+    "keypoint": 0.30,
+}
+
+# ThreadPoolExecutor: 3 workers = 3 โมเดลพร้อมกัน
 executor = ThreadPoolExecutor(max_workers=3)
 
+
 # ======================================================
-# Model inference functions (รันใน thread)
+# Model inference functions
 # ======================================================
 def infer_human(frame: np.ndarray) -> list:
-    """YOLO human detection + tracking"""
     results = model_human.track(
         frame,
         persist=True,
-        conf=0.3,
+        conf=CONF["human"],   # ← ใช้ค่าจาก CONF
         classes=[0],
         verbose=False,
         tracker="bytetrack.yaml"
@@ -58,8 +73,10 @@ def infer_human(frame: np.ndarray) -> list:
     result = results[0]
     if result.boxes is not None:
         for box in result.boxes:
-            x1, y1, x2, y2 = box.xyxy[0].tolist()
             conf = float(box.conf[0])
+            if conf < CONF["human"]:   # filter ซ้ำ (กันกรณี YOLO ยังส่งมา)
+                continue
+            x1, y1, x2, y2 = box.xyxy[0].tolist()
             track_id = int(box.id[0]) if box.id is not None else None
             boxes.append({
                 "x": float(x1), "y": float(y1),
@@ -73,14 +90,19 @@ def infer_human(frame: np.ndarray) -> list:
 
 
 def infer_face(frame: np.ndarray) -> list:
-    """Face detection"""
-    results = model_face.predict(frame, conf=0.4, verbose=False)
+    results = model_face.predict(
+        frame,
+        conf=CONF["face"],    # ← ใช้ค่าจาก CONF
+        verbose=False
+    )
     boxes = []
     result = results[0]
     if result.boxes is not None:
         for box in result.boxes:
-            x1, y1, x2, y2 = box.xyxy[0].tolist()
             conf = float(box.conf[0])
+            if conf < CONF["face"]:
+                continue
+            x1, y1, x2, y2 = box.xyxy[0].tolist()
             boxes.append({
                 "x": float(x1), "y": float(y1),
                 "w": float(x2 - x1), "h": float(y2 - y1),
@@ -93,22 +115,30 @@ def infer_face(frame: np.ndarray) -> list:
 
 
 def infer_pose(frame: np.ndarray) -> list:
-    """Pose estimation — ส่งคืน keypoints + bounding box"""
-    results = model_pose.predict(frame, conf=0.3, verbose=False)
+    results = model_pose.predict(
+        frame,
+        conf=CONF["pose"],    # ← ใช้ค่าจาก CONF
+        verbose=False
+    )
     boxes = []
     result = results[0]
     if result.boxes is not None:
         for i, box in enumerate(result.boxes):
-            x1, y1, x2, y2 = box.xyxy[0].tolist()
             conf = float(box.conf[0])
+            if conf < CONF["pose"]:
+                continue
+            x1, y1, x2, y2 = box.xyxy[0].tolist()
 
-            # Keypoints (ถ้ามี)
             keypoints = []
             if result.keypoints is not None and i < len(result.keypoints):
                 kp = result.keypoints[i]
-                if kp.xy is not None:
-                    for k in kp.xy[0].tolist():
-                        keypoints.append({"x": float(k[0]), "y": float(k[1])})
+                if kp.data is not None:
+                    for k in kp.data[0].tolist():   # (x, y, kp_conf)
+                        keypoints.append({
+                            "x":    float(k[0]),
+                            "y":    float(k[1]),
+                            "conf": round(float(k[2]), 3),
+                        })
 
             boxes.append({
                 "x": float(x1), "y": float(y1),
@@ -143,21 +173,18 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     print(f"\n🟢 [CONNECTED]  Client: {client_info}")
 
-    frame_count = 0
-    start_time = time.time()
+    frame_count  = 0
+    start_time   = time.time()
     last_log_time = start_time
     loop = asyncio.get_event_loop()
 
     try:
         while True:
-            # ==========================================
-            # รับภาพจาก browser
-            # ==========================================
             data = await websocket.receive_bytes()
             frame_count += 1
 
             np_arr = np.frombuffer(data, np.uint8)
-            frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            frame  = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
             if frame is None:
                 print(f"  ⚠️  Frame {frame_count}: decode failed")
@@ -166,10 +193,6 @@ async def websocket_endpoint(websocket: WebSocket):
             h, w = frame.shape[:2]
             t0 = time.perf_counter()
 
-            # ==========================================
-            # รัน 3 โมเดลพร้อมกัน (parallel)
-            # bottleneck = โมเดลที่ช้าสุด เท่านั้น
-            # ==========================================
             boxes_human, boxes_face, boxes_pose = await asyncio.gather(
                 loop.run_in_executor(executor, infer_human, frame),
                 loop.run_in_executor(executor, infer_face,  frame),
@@ -178,34 +201,26 @@ async def websocket_endpoint(websocket: WebSocket):
 
             inference_ms = (time.perf_counter() - t0) * 1000
 
-            # ==========================================
-            # Log ทุก 1 วินาที
-            # ==========================================
             now = time.time()
             if now - last_log_time >= 1.0:
                 elapsed = now - start_time
                 fps = frame_count / elapsed
                 print(
-                    f"  📦 Frame:{frame_count:>5} | "
-                    f"FPS:{fps:>5.1f} | "
-                    f"Res:{w}x{h} | "
-                    f"Infer:{inference_ms:>5.1f}ms | "
+                    f"  📦 Frame:{frame_count:>5} | FPS:{fps:>5.1f} | "
+                    f"Res:{w}x{h} | Infer:{inference_ms:>5.1f}ms | "
                     f"👤{len(boxes_human)} 😊{len(boxes_face)} 🏃{len(boxes_pose)}"
                 )
                 last_log_time = now
 
-            # ==========================================
-            # ส่งผลกลับ browser
-            # ==========================================
             response = {
-                "w": w,
-                "h": h,
+                "w": w, "h": h,
                 "inference_ms": round(inference_ms, 1),
-                "humans": boxes_human,
-                "faces":  boxes_face,
-                "poses":  boxes_pose,
-                # รวม boxes ทั้งหมดไว้ใน detections ด้วยเผื่อ frontend อยากใช้
-                "detections": boxes_human + boxes_face + boxes_pose
+                # ส่ง threshold ที่ใช้ไปด้วย ให้ frontend แสดงได้
+                "conf_used": CONF,
+                "humans":     boxes_human,
+                "faces":      boxes_face,
+                "poses":      boxes_pose,
+                "detections": boxes_human + boxes_face + boxes_pose,
             }
 
             await websocket.send_text(json.dumps(response))
