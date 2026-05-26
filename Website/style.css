@@ -9,29 +9,28 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  /* Warm off-white palette */
   --bg:        #f2efe9;
   --surface:   #ede9e1;
   --surface2:  #e5e0d6;
-  --ink:       #1a1814;
-  --ink-2:     #6b6760;
-  --ink-3:     #a8a49e;
-  --border:    rgba(26,24,20,0.10);
-  --border-s:  rgba(26,24,20,0.06);
 
-  /* Accent — one saturated color only */
+  /* 🔥 เพิ่ม contrast */
+  --ink:       #000000;     /* เดิม #1a1814 */
+  --ink-2:     #000000;     /* เดิม #6b6760 */
+  --ink-3:     #0d0d0d;     /* เดิม #a8a49e */
+
+  /* 🔥 border ชัดขึ้น */
+  --border:    rgba(26,24,20,0.18);
+  --border-s:  rgba(26,24,20,0.10);
+
+  /* accent */
   --accent:    #1a1814;
   --red:       #d94040;
   --warn:      #c97a1a;
 
-  /* Detection type colors — muted but clear */
-  --col-human: #1d7ab5;
-  --col-face:  #b5401d;
-  --col-pose:  #1d9e5a;
-
-  --mono: 'DM Mono', monospace;
-  --sans: 'DM Sans', sans-serif;
-  --radius: 4px;
+  /* 🔥 สี model ชัดขึ้น */
+  --col-human: #0b6fb8;
+  --col-face:  #b12f12;
+  --col-pose:  #148a4f;
 }
 
 html, body {
@@ -71,7 +70,7 @@ html, body {
 
 .header-title {
   font-family: var(--mono);
-  font-size: 0.72rem;
+  font-size: 0.9rem;
   font-weight: 500;
   letter-spacing: 0.18em;
   color: var(--ink);
@@ -79,12 +78,7 @@ html, body {
 }
 
 .header-time {
-  font-family: var(--mono);
-  font-size: 0.7rem;
-  font-weight: 300;
-  color: var(--ink-3);
-  margin-left: auto;
-  letter-spacing: 0.05em;
+  color: var(--ink-2); /* เดิม ink-3 */
 }
 
 /* WS pill */
