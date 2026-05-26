@@ -66,22 +66,22 @@
         <!-- ===== STATUS BAR ===== -->
         <section class="status-bar">
             <div class="stat-cell">
-                <div class="stat-label">TX fps</div>
+                <div class="stat-label">อัตราการส่งออกภาพ</div>
                 <div class="stat-value" id="valTxFps">0</div>
                 <div class="stat-sub">camera → server</div>
             </div>
             <div class="stat-cell">
-                <div class="stat-label">RX fps</div>
+                <div class="stat-label">อัตราเฟรมที่รับเข้า</div>
                 <div class="stat-value" id="valRxFps">0</div>
                 <div class="stat-sub">server → browser</div>
             </div>
             <div class="stat-cell">
-                <div class="stat-label">Latency</div>
+                <div class="stat-label">ความหน่วงเวลาการส่งข้อมูล</div>
                 <div class="stat-value ok" id="valLat">—</div>
                 <div class="stat-sub">round-trip ms</div>
             </div>
             <div class="stat-cell">
-                <div class="stat-label">Infer</div>
+                <div class="stat-label">เวลาในการประมวลผลของ AI</div>
                 <div class="stat-value ok" id="valInfer">—</div>
                 <div class="stat-sub">3-model parallel ms</div>
             </div>
@@ -96,17 +96,17 @@
 
                 <div class="model-row">
                     <span class="model-dot human"></span>
-                    <span class="model-name">yolo11n · Human</span>
+                    <span class="model-name">yolo11n.pt · Human</span>
                     <span class="model-count human" id="countHuman">0</span>
                 </div>
                 <div class="model-row">
                     <span class="model-dot face"></span>
-                    <span class="model-name">detectface · Face</span>
+                    <span class="model-name">detectface.pt · Face</span>
                     <span class="model-count face" id="countFace">0</span>
                 </div>
                 <div class="model-row">
                     <span class="model-dot pose"></span>
-                    <span class="model-name">pose · Pose</span>
+                    <span class="model-name">yolo11n-pose.pt · Pose</span>
                     <span class="model-count pose" id="countPose">0</span>
                 </div>
             </div>

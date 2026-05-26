@@ -3,12 +3,15 @@
    Aesthetic: warm minimal — off-white ground, soft ink
    ===================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
 
 /* ---- Reset ---- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
+  --sans: 'Roboto', 'Lato', sans-serif;
+  --mono: 'Courier New', monospace;
+
   --bg:        #f2efe9;
   --surface:   #ede9e1;
   --surface2:  #e5e0d6;
@@ -38,7 +41,7 @@ html, body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--sans);
-  font-weight: 300;
+  font-weight: 500;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
 }
@@ -70,8 +73,8 @@ html, body {
 
 .header-title {
   font-family: var(--mono);
-  font-size: 0.9rem;
-  font-weight: 500;
+  font-size: 1 rem;
+  font-weight: 1000;
   letter-spacing: 0.18em;
   color: var(--ink);
   text-transform: uppercase;
@@ -215,8 +218,8 @@ video {
 
 .stat-label {
   font-family: var(--mono);
-  font-size: 0.55rem;
-  letter-spacing: 0.18em;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
   color: var(--ink-3);
   text-transform: uppercase;
 }
@@ -237,7 +240,7 @@ video {
 .stat-sub {
   font-family: var(--sans);
   font-size: 0.55rem;
-  font-weight: 300;
+  font-weight: 500;
   color: var(--ink-3);
   letter-spacing: 0.02em;
 }
@@ -267,11 +270,12 @@ video {
 
 .section-title {
   font-family: var(--mono);
-  font-size: 0.55rem;
+  font-size: 0.7rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--ink-3);
   margin-bottom: 10px;
+  font-weight: 1000;
 }
 
 /* Detection count rows */
@@ -297,7 +301,7 @@ video {
 .model-name {
   font-family: var(--mono);
   font-size: 0.65rem;
-  font-weight: 300;
+  font-weight: 700;
   color: var(--ink-2);
   flex: 1;
 }
@@ -305,7 +309,7 @@ video {
 .model-count {
   font-family: var(--mono);
   font-size: 0.65rem;
-  font-weight: 500;
+  font-weight: 700;
   background: transparent;
   border: 1px solid var(--border);
   border-radius: 3px;
@@ -316,9 +320,9 @@ video {
   transition: color 0.2s, border-color 0.2s;
 }
 
-.model-count.human { color: var(--col-human); border-color: rgba(29,122,181,0.3); }
-.model-count.face  { color: var(--col-face);  border-color: rgba(181,64,29,0.3); }
-.model-count.pose  { color: var(--col-pose);  border-color: rgba(29,158,90,0.3); }
+.model-count.human { color: var(--col-human); border-color: rgba(29, 123, 181, 0.809); }
+.model-count.face  { color: var(--col-face);  border-color: rgba(181, 64, 29, 0.628); }
+.model-count.pose  { color: var(--col-pose);  border-color: rgba(29, 158, 89, 0.62); }
 
 /* Detection log */
 .det-log {
