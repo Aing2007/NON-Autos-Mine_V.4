@@ -39,7 +39,158 @@
             </div>
 
             <div class="header-time" id="clock">00:00:00</div>
+
+            <!-- Hamburger -->
+            <button class="hamburger" id="hamburgerBtn" aria-label="เมนู">
+                <span></span><span></span><span></span>
+            </button>
         </header>
+
+        <!-- ===== DRAWER OVERLAY ===== -->
+        <div class="drawer-overlay" id="drawerOverlay"></div>
+
+        <!-- ===== DRAWER PANEL ===== -->
+        <nav class="drawer" id="drawer">
+            <!-- Back / Close -->
+            <div class="drawer-header">
+                <button class="drawer-back" id="drawerBack">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span id="drawerBackLabel">ปิดเมนู</span>
+                </button>
+                <div class="drawer-title" id="drawerTitle">NON-Autos&nbsp;Mine</div>
+            </div>
+
+            <!-- ===== MAIN MENU ===== -->
+            <div class="drawer-body" id="drawerMain">
+                <p class="drawer-subtitle">เลือกหมวดหมู่ที่ต้องการดู</p>
+
+                <button class="menu-item" data-panel="graph">
+                    <span class="menu-icon">📈</span>
+                    <span class="menu-text">
+                        <span class="menu-label">ข้อมูลกราฟ</span>
+                        <span class="menu-desc">Plot กราฟความเร็ว & Keypoint</span>
+                    </span>
+                    <span class="menu-arrow">›</span>
+                </button>
+
+                <button class="menu-item" data-panel="score">
+                    <span class="menu-icon">🏅</span>
+                    <span class="menu-text">
+                        <span class="menu-label">คะแนนผู้เข้าร่วม</span>
+                        <span class="menu-desc">แบ่งคะแนนรายบุคคล</span>
+                    </span>
+                    <span class="menu-arrow">›</span>
+                </button>
+
+                <button class="menu-item" data-panel="settings">
+                    <span class="menu-icon">⚙️</span>
+                    <span class="menu-text">
+                        <span class="menu-label">การตั้งค่าพารามิเตอร์</span>
+                        <span class="menu-desc">ประเภทกิจกรรม & ส่วนของร่างกาย</span>
+                    </span>
+                    <span class="menu-arrow">›</span>
+                </button>
+
+                <div class="drawer-divider"></div>
+                <div class="drawer-info">
+                    <div class="info-row"><span class="info-k">Model</span><span class="info-v">yolo11n · yolo11n-pose</span></div>
+                    <div class="info-row"><span class="info-k">Status</span><span id="drawerWsStatus" class="info-v" style="color:var(--col-pose)">—</span></div>
+                </div>
+            </div>
+
+            <!-- ===== PANEL: GRAPH ===== -->
+            <div class="drawer-body drawer-panel" id="panelGraph">
+                <p class="drawer-subtitle">กราฟจากข้อมูล AI Detection</p>
+
+                <!-- Speed chart -->
+                <div class="chart-block">
+                    <div class="chart-label">
+                        <span class="chart-dot" style="background:#ff3333"></span>
+                        อัตราเร็วของจุดสีแดง ณ จุดตัดเส้นทแยงมุม
+                    </div>
+                    <canvas class="mini-chart" id="chartSpeed" height="90"></canvas>
+                    <div class="chart-legend">
+                        <span class="legend-item"><span class="leg-dot" style="background:#ff3333"></span>px/s</span>
+                    </div>
+                </div>
+
+                <!-- Keypoint chart -->
+                <div class="chart-block">
+                    <div class="chart-label">
+                        <span class="chart-dot" style="background:#69ff47"></span>
+                        การเคลื่อนที่ของ Keypoint (Pose)
+                    </div>
+                    <canvas class="mini-chart" id="chartKeypoint" height="90"></canvas>
+                    <div class="chart-legend" id="kpLegend">
+                        <span class="legend-item"><span class="leg-dot" style="background:rgba(80,200,255,0.9)"></span>แขนซ้าย</span>
+                        <span class="legend-item"><span class="leg-dot" style="background:rgba(255,220,50,0.9)"></span>แขนขวา</span>
+                        <span class="legend-item"><span class="leg-dot" style="background:rgba(200,200,255,0.8)"></span>หัว</span>
+                        <span class="legend-item"><span class="leg-dot" style="background:rgba(105,255,71,0.85)"></span>ลำตัว</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== PANEL: SCORE ===== -->
+            <div class="drawer-body drawer-panel" id="panelScore">
+                <p class="drawer-subtitle">คะแนนแยกตามบุคคลที่ตรวจจับได้</p>
+                <div id="scoreList" class="score-list">
+                    <div class="score-empty">ยังไม่มีข้อมูลผู้เข้าร่วม<br>รอให้ตรวจจับ Human…</div>
+                </div>
+            </div>
+
+            <!-- ===== PANEL: SETTINGS ===== -->
+            <div class="drawer-body drawer-panel" id="panelSettings">
+                <p class="drawer-subtitle">ปรับแต่งพารามิเตอร์การวิเคราะห์</p>
+
+                <div class="setting-group">
+                    <label class="setting-label">ประเภทกิจกรรม</label>
+                    <div class="setting-chips" id="activityChips">
+                        <button class="chip active" data-val="general">ทั่วไป</button>
+                        <button class="chip" data-val="sport">กีฬา</button>
+                        <button class="chip" data-val="rehab">กายภาพ</button>
+                        <button class="chip" data-val="dance">เต้น</button>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">ส่วนร่างกายหลัก</label>
+                    <div class="setting-chips" id="bodyChips">
+                        <button class="chip active" data-val="all">ทั้งหมด</button>
+                        <button class="chip" data-val="arms">แขน</button>
+                        <button class="chip" data-val="legs">ขา</button>
+                        <button class="chip" data-val="torso">ลำตัว</button>
+                        <button class="chip" data-val="head">หัว</button>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">ความไวในการตรวจจับ</label>
+                    <div class="slider-row">
+                        <input type="range" class="setting-slider" id="sensitivitySlider" min="0" max="100" value="65">
+                        <span class="slider-val" id="sensitivityVal">65</span>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">จำนวนเฟรมสำหรับวิเคราะห์</label>
+                    <div class="slider-row">
+                        <input type="range" class="setting-slider" id="frameSlider" min="10" max="120" value="30">
+                        <span class="slider-val" id="frameVal">30</span>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">โหมดแสดงผล</label>
+                    <div class="setting-chips">
+                        <button class="chip active" data-val="all">ทุกโมเดล</button>
+                        <button class="chip" data-val="pose">Pose เท่านั้น</button>
+                        <button class="chip" data-val="human">Human เท่านั้น</button>
+                    </div>
+                </div>
+            </div>
+        </nav>
 
         <!-- ===== CAMERA ===== -->
         <main class="camera-area">

@@ -532,3 +532,335 @@ window.addEventListener("load", async () => {
     loop();
     drawLoop();
 });
+// ============================================================
+// HAMBURGER DRAWER SYSTEM
+// ============================================================
+
+const hamburgerBtn  = document.getElementById("hamburgerBtn");
+const drawer        = document.getElementById("drawer");
+const drawerOverlay = document.getElementById("drawerOverlay");
+const drawerBack    = document.getElementById("drawerBack");
+const drawerBackLabel = document.getElementById("drawerBackLabel");
+const drawerTitle   = document.getElementById("drawerTitle");
+const drawerMain    = document.getElementById("drawerMain");
+const drawerWsStatus = document.getElementById("drawerWsStatus");
+
+// Panel elements
+const panelGraph    = document.getElementById("panelGraph");
+const panelScore    = document.getElementById("panelScore");
+const panelSettings = document.getElementById("panelSettings");
+
+let drawerOpen = false;
+let currentPanel = null; // null = main menu
+
+function openDrawer() {
+    drawerOpen = true;
+    drawer.classList.add("open");
+    drawerOverlay.classList.add("show");
+    hamburgerBtn.classList.add("open");
+    showMainMenu();
+}
+
+function closeDrawer() {
+    drawerOpen = false;
+    drawer.classList.remove("open");
+    drawerOverlay.classList.remove("show");
+    hamburgerBtn.classList.remove("open");
+    currentPanel = null;
+}
+
+function showMainMenu() {
+    currentPanel = null;
+    drawerMain.style.display = "";
+    [panelGraph, panelScore, panelSettings].forEach(p => {
+        p.classList.remove("active");
+        p.style.display = "";
+    });
+    drawerBackLabel.textContent = "ปิดเมนู";
+    drawerTitle.textContent = "NON-Autos\u00a0Mine";
+}
+
+function showPanel(panelId) {
+    const panelMap = {
+        graph:    { el: panelGraph,    title: "ข้อมูลกราฟ" },
+        score:    { el: panelScore,    title: "คะแนนผู้เข้าร่วม" },
+        settings: { el: panelSettings, title: "ตั้งค่าพารามิเตอร์" },
+    };
+    const p = panelMap[panelId];
+    if (!p) return;
+
+    currentPanel = panelId;
+    drawerMain.style.display = "none";
+    [panelGraph, panelScore, panelSettings].forEach(el => el.classList.remove("active"));
+    p.el.classList.add("active");
+    drawerBackLabel.textContent = "ย้อนกลับ";
+    drawerTitle.textContent = p.title;
+
+    if (panelId === "score") renderScorePanel();
+    if (panelId === "graph") initCharts();
+}
+
+hamburgerBtn.addEventListener("click", () => {
+    drawerOpen ? closeDrawer() : openDrawer();
+});
+
+drawerOverlay.addEventListener("click", closeDrawer);
+
+drawerBack.addEventListener("click", () => {
+    if (currentPanel) {
+        showMainMenu();
+    } else {
+        closeDrawer();
+    }
+});
+
+document.querySelectorAll(".menu-item").forEach(btn => {
+    btn.addEventListener("click", () => showPanel(btn.dataset.panel));
+});
+
+// Keyboard ESC
+document.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+        if (currentPanel) showMainMenu();
+        else if (drawerOpen) closeDrawer();
+    }
+});
+
+// ---- Sync WS status into drawer ----
+function syncDrawerWsStatus() {
+    if (!drawerWsStatus) return;
+    const connected = wsDot.classList.contains("on");
+    drawerWsStatus.textContent = connected ? "CONNECTED" : "DISCONNECTED";
+    drawerWsStatus.style.color = connected ? "var(--col-pose)" : "var(--red)";
+}
+setInterval(syncDrawerWsStatus, 1500);
+
+// ============================================================
+// CHIPS (single-select)
+// ============================================================
+document.querySelectorAll(".setting-chips").forEach(group => {
+    group.addEventListener("click", e => {
+        const chip = e.target.closest(".chip");
+        if (!chip) return;
+        group.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
+        chip.classList.add("active");
+    });
+});
+
+// Sliders
+const sensitivitySlider = document.getElementById("sensitivitySlider");
+const sensitivityVal    = document.getElementById("sensitivityVal");
+const frameSlider       = document.getElementById("frameSlider");
+const frameVal          = document.getElementById("frameVal");
+
+sensitivitySlider && sensitivitySlider.addEventListener("input", () => {
+    sensitivityVal.textContent = sensitivitySlider.value;
+});
+frameSlider && frameSlider.addEventListener("input", () => {
+    frameVal.textContent = frameSlider.value;
+});
+
+// ============================================================
+// SCORE PANEL
+// ============================================================
+const scoreData = {};   // id → { color, frames, totalMotion }
+
+// Hook into existing human data processing
+function updateScoreData() {
+    for (const b of latestHumans) {
+        const id = b.id ?? "?";
+        if (!scoreData[id]) {
+            scoreData[id] = {
+                color: getIdColor(b.id),
+                frames: 0,
+                totalMotion: 0,
+                score: 0,
+            };
+        }
+        scoreData[id].frames++;
+        // Simple score heuristic: frames detected × conf
+        scoreData[id].score = Math.min(100, (scoreData[id].frames * b.conf * 0.4).toFixed(1));
+    }
+    // Incorporate pose keypoint activity
+    for (const p of latestPoses) {
+        const id = p.id ?? "?";
+        if (!scoreData[id]) return;
+        if (p.keypoints) {
+            const active = p.keypoints.filter(kp => (kp.conf ?? 0) >= DRAW.kpConfMin).length;
+            scoreData[id].totalMotion += active;
+            scoreData[id].score = Math.min(100,
+                (scoreData[id].frames * 0.3 + scoreData[id].totalMotion * 0.1).toFixed(1));
+        }
+    }
+}
+
+function renderScorePanel() {
+    const list = document.getElementById("scoreList");
+    if (!list) return;
+    const ids = Object.keys(scoreData);
+    if (ids.length === 0) {
+        list.innerHTML = '<div class="score-empty">ยังไม่มีข้อมูลผู้เข้าร่วม<br>รอให้ตรวจจับ Human…</div>';
+        return;
+    }
+    list.innerHTML = ids.map(id => {
+        const d = scoreData[id];
+        const pct = Math.min(100, parseFloat(d.score));
+        return `
+        <div class="score-card">
+          <div class="score-card-header">
+            <span class="score-id-dot" style="background:${d.color}"></span>
+            <span class="score-id-label">Person ${id}</span>
+            <span class="score-badge">${pct} pt</span>
+          </div>
+          <div class="score-bar-wrap">
+            <div class="score-bar-fill" style="width:${pct}%;background:${d.color}"></div>
+          </div>
+        </div>`;
+    }).join("");
+}
+
+// ============================================================
+// GRAPH PANEL — mini canvas line charts
+// ============================================================
+const CHART_LEN = 60;
+
+// Speed of center-dot crossing diagonal (px/frame proxy)
+const speedHistory = new Array(CHART_LEN).fill(0);
+let lastCenterX = null, lastCenterY = null;
+
+// Keypoint y-position histories (head=0, left-wrist=9, right-wrist=10, spine mid)
+const kpHistory = {
+    head:  new Array(CHART_LEN).fill(null),
+    armL:  new Array(CHART_LEN).fill(null),
+    armR:  new Array(CHART_LEN).fill(null),
+    torso: new Array(CHART_LEN).fill(null),
+};
+
+let chartsInitialized = false;
+
+function pushVal(arr, val) {
+    arr.push(val);
+    if (arr.length > CHART_LEN) arr.shift();
+}
+
+function collectChartData() {
+    // Speed: distance of first human center-dot
+    if (latestHumans.length > 0) {
+        const h = latestHumans[0];
+        const cx = h.x + h.w / 2;
+        const cy = h.y + h.h / 2;
+        if (lastCenterX !== null) {
+            const dx = cx - lastCenterX, dy = cy - lastCenterY;
+            pushVal(speedHistory, Math.sqrt(dx * dx + dy * dy));
+        }
+        lastCenterX = cx; lastCenterY = cy;
+    } else {
+        pushVal(speedHistory, 0);
+    }
+
+    // Keypoints: first pose
+    if (latestPoses.length > 0 && latestPoses[0].keypoints) {
+        const kp = latestPoses[0].keypoints;
+        const get = (i) => (kp[i] && (kp[i].conf ?? 0) >= DRAW.kpConfMin) ? kp[i].y : null;
+        pushVal(kpHistory.head,  get(0));
+        pushVal(kpHistory.armL,  get(9));   // left wrist
+        pushVal(kpHistory.armR,  get(10));  // right wrist
+        pushVal(kpHistory.torso, (get(5) !== null && get(11) !== null) ? (kp[5].y + kp[11].y) / 2 : null);
+    } else {
+        Object.values(kpHistory).forEach(arr => pushVal(arr, null));
+    }
+}
+
+setInterval(() => {
+    collectChartData();
+    updateScoreData();
+    if (currentPanel === "graph") drawCharts();
+    if (currentPanel === "score") renderScorePanel();
+}, 200);
+
+function initCharts() {
+    if (!chartsInitialized) chartsInitialized = true;
+    drawCharts();
+}
+
+function drawCharts() {
+    drawLineChart(
+        document.getElementById("chartSpeed"),
+        [{ data: speedHistory, color: "#ff3333" }],
+        { bg: "rgba(255,51,51,0.04)", gridColor: "rgba(26,24,20,0.06)" }
+    );
+    drawLineChart(
+        document.getElementById("chartKeypoint"),
+        [
+            { data: kpHistory.head,  color: "rgba(200,200,255,0.85)" },
+            { data: kpHistory.armL,  color: "rgba(80,200,255,0.9)" },
+            { data: kpHistory.armR,  color: "rgba(255,220,50,0.9)" },
+            { data: kpHistory.torso, color: "rgba(105,255,71,0.85)" },
+        ],
+        { bg: "rgba(105,255,71,0.03)", gridColor: "rgba(26,24,20,0.06)", invert: true }
+    );
+}
+
+function drawLineChart(canvas, series, opts = {}) {
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    const W = rect.width || canvas.parentElement.clientWidth || 260;
+    const H = canvas.height;
+
+    canvas.width  = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    canvas.style.height = H + "px";
+
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.scale(dpr, dpr);
+
+    // Background
+    ctx.fillStyle = opts.bg || "rgba(242,239,233,0.6)";
+    ctx.fillRect(0, 0, W, H);
+
+    // Grid lines
+    ctx.strokeStyle = opts.gridColor || "rgba(0,0,0,0.06)";
+    ctx.lineWidth = 0.5;
+    for (let i = 1; i < 4; i++) {
+        const gy = (H / 4) * i;
+        ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke();
+    }
+
+    const padT = 4, padB = 4;
+    const plotH = H - padT - padB;
+
+    // Find global min/max across all series
+    let allVals = [];
+    series.forEach(s => s.data.forEach(v => { if (v !== null) allVals.push(v); }));
+    let minV = allVals.length ? Math.min(...allVals) : 0;
+    let maxV = allVals.length ? Math.max(...allVals) : 1;
+    if (maxV === minV) { maxV = minV + 1; }
+
+    // Draw each series
+    series.forEach(s => {
+        const len = s.data.length;
+        if (len < 2) return;
+        const step = W / (CHART_LEN - 1);
+
+        ctx.strokeStyle = s.color;
+        ctx.lineWidth = 1.5;
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        let started = false;
+        for (let i = 0; i < len; i++) {
+            const v = s.data[i];
+            if (v === null) { started = false; continue; }
+            const nx = i * step;
+            const pct = (v - minV) / (maxV - minV);
+            const ny = opts.invert
+                ? padT + pct * plotH
+                : padT + (1 - pct) * plotH;
+            if (!started) { ctx.moveTo(nx, ny); started = true; }
+            else ctx.lineTo(nx, ny);
+        }
+        ctx.stroke();
+    });
+}
