@@ -205,6 +205,37 @@ video {
   background: var(--border);
   overflow: hidden;
 }
+/* Setup info block inside settings panel */
+.setup-info-block {
+    background: var(--bg);
+    border: 1px solid var(--border-s);
+    border-radius: 4px;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.setup-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.04em;
+}
+
+.setup-info-k { color: var(--ink-3); }
+
+.setup-info-v {
+    color: var(--ink);
+    font-weight: 700;
+    max-width: 160px;
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 
 .stat-cell {
   background: var(--surface);

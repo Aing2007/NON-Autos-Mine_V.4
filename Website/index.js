@@ -63,6 +63,55 @@ const DRAW = {
 // alias ให้ code ที่เหลือใช้ TYPE_COLORS ได้เหมือนเดิม
 const TYPE_COLORS = DRAW.color;
 
+// ============================================================
+// รับค่า Parameter จาก setup.html ผ่าน URL Query String
+// ============================================================
+const setupParams = new URLSearchParams(window.location.search);
+
+const SETUP = {
+    playMethod: setupParams.get("playMethod") || "sitting",
+    objective:  setupParams.get("objective")  || "attention",
+    gameName:   setupParams.get("gameName")   || "—",
+};
+
+// Map ค่า value → ข้อความภาษาไทย
+const PLAY_LABEL = {
+    sitting:  "นั่งเล่น",
+    standing: "ยืนเล่น",
+};
+const OBJ_LABEL = {
+    attention:   "ฝึกสมาธิและความนิ่ง",
+    fine_motor:  "กล้ามเนื้อมัดเล็ก",
+    gross_motor: "กล้ามเนื้อมัดใหญ่",
+};
+
+// Map objective → activity chip ที่ควร active
+const OBJ_TO_ACTIVITY = {
+    attention:   "general",
+    fine_motor:  "rehab",
+    gross_motor: "sport",
+};
+
+function applySetupParams() {
+    // แสดงค่าใน info block
+    const elPlay = document.getElementById("infoPlayMethod");
+    const elObj  = document.getElementById("infoObjective");
+    const elGame = document.getElementById("infoGameName");
+
+    if (elPlay) elPlay.textContent = PLAY_LABEL[SETUP.playMethod] || SETUP.playMethod;
+    if (elObj)  elObj.textContent  = OBJ_LABEL[SETUP.objective]   || SETUP.objective;
+    if (elGame) elGame.textContent = decodeURIComponent(SETUP.gameName);
+
+    // Auto-select chip "ประเภทกิจกรรม" ตาม objective
+    const targetActivity = OBJ_TO_ACTIVITY[SETUP.objective] || "general";
+    const activityChips  = document.querySelectorAll("#activityChips .chip");
+    activityChips.forEach(chip => {
+        chip.classList.toggle("active", chip.dataset.val === targetActivity);
+    });
+}
+
+// เรียกหลัง DOM โหลดเสร็จ
+document.addEventListener("DOMContentLoaded", applySetupParams);
 // State
 let ws = null;
 let waitingReply = false;

@@ -141,55 +141,29 @@
             </div>
 
             <!-- ===== PANEL: SETTINGS ===== -->
-            <div class="drawer-body drawer-panel" id="panelSettings">
-                <p class="drawer-subtitle">ปรับแต่งพารามิเตอร์การวิเคราะห์</p>
+<div class="drawer-body drawer-panel" id="panelSettings">
+    <p class="drawer-subtitle">ปรับแต่งพารามิเตอร์การวิเคราะห์</p>
 
-                <div class="setting-group">
-                    <label class="setting-label">ประเภทกิจกรรม</label>
-                    <div class="setting-chips" id="activityChips">
-                        <button class="chip active" data-val="general">ทั่วไป</button>
-                        <button class="chip" data-val="sport">กีฬา</button>
-                        <button class="chip" data-val="rehab">กายภาพ</button>
-                        <button class="chip" data-val="dance">เต้น</button>
-                    </div>
-                </div>
-
-                <div class="setting-group">
-                    <label class="setting-label">ส่วนร่างกายหลัก</label>
-                    <div class="setting-chips" id="bodyChips">
-                        <button class="chip active" data-val="all">ทั้งหมด</button>
-                        <button class="chip" data-val="arms">แขน</button>
-                        <button class="chip" data-val="legs">ขา</button>
-                        <button class="chip" data-val="torso">ลำตัว</button>
-                        <button class="chip" data-val="head">หัว</button>
-                    </div>
-                </div>
-
-                <div class="setting-group">
-                    <label class="setting-label">ความไวในการตรวจจับ</label>
-                    <div class="slider-row">
-                        <input type="range" class="setting-slider" id="sensitivitySlider" min="0" max="100" value="65">
-                        <span class="slider-val" id="sensitivityVal">65</span>
-                    </div>
-                </div>
-
-                <div class="setting-group">
-                    <label class="setting-label">จำนวนเฟรมสำหรับวิเคราะห์</label>
-                    <div class="slider-row">
-                        <input type="range" class="setting-slider" id="frameSlider" min="10" max="120" value="30">
-                        <span class="slider-val" id="frameVal">30</span>
-                    </div>
-                </div>
-
-                <div class="setting-group">
-                    <label class="setting-label">โหมดแสดงผล</label>
-                    <div class="setting-chips">
-                        <button class="chip active" data-val="all">ทุกโมเดล</button>
-                        <button class="chip" data-val="pose">Pose เท่านั้น</button>
-                        <button class="chip" data-val="human">Human เท่านั้น</button>
-                    </div>
-                </div>
+    <!-- ค่าที่รับมาจาก setup.html -->
+    <div class="setting-group">
+        <label class="setting-label">ข้อมูลจากการตั้งค่า</label>
+        <div class="setup-info-block">
+            <div class="setup-info-row">
+                <span class="setup-info-k">วิธีเล่น</span>
+                <span class="setup-info-v" id="infoPlayMethod">—</span>
             </div>
+            <div class="setup-info-row">
+                <span class="setup-info-k">วัตถุประสงค์</span>
+                <span class="setup-info-v" id="infoObjective">—</span>
+            </div>
+            <div class="setup-info-row">
+                <span class="setup-info-k">ชื่อเกม</span>
+                <span class="setup-info-v" id="infoGameName">—</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="drawer-divider"></div>
         </nav>
 
         <!-- ===== CAMERA ===== -->
