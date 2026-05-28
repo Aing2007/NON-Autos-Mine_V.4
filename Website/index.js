@@ -117,7 +117,11 @@ let ws = null;
 let waitingReply = false;
 let streaming = false;
 let timeoutTimer = null;
-
+let mode = "camera";
+let videoFileEl = document.getElementById("videoFile");
+let recorder = null;
+let chunks = [];
+let currentVideoObjectURL = null;
 // Stats
 let txCount = 0, rxCount = 0;
 let txTs = Date.now(), rxTs = Date.now();
@@ -200,6 +204,114 @@ const countPose = document.getElementById("countPose");
 const detLog = document.getElementById("detLog");
 const inferBadge = document.getElementById("inferBadge");
 const clockEl = document.getElementById("clock");
+
+// ============================================================
+// Mode / Video input handling
+// ============================================================
+document.querySelectorAll('input[name="mode"]').forEach(r => {
+    r.addEventListener("change", (e) => {
+        mode = e.target.value;
+
+        if (mode === "video") {
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+            video.pause();
+            if (videoFileEl) {
+                videoFileEl.style.display = "block";
+            }
+        } else {
+            if (videoFileEl) {
+                videoFileEl.style.display = "none";
+                videoFileEl.value = "";
+            }
+            if (currentVideoObjectURL) {
+                URL.revokeObjectURL(currentVideoObjectURL);
+                currentVideoObjectURL = null;
+            }
+            if (video.src && video.src.startsWith("blob:")) {
+                video.pause();
+                video.removeAttribute("src");
+                video.load();
+            }
+            openCamera();
+        }
+    });
+});
+
+if (videoFileEl) {
+    videoFileEl.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (currentVideoObjectURL) {
+            URL.revokeObjectURL(currentVideoObjectURL);
+        }
+
+        currentVideoObjectURL = URL.createObjectURL(file);
+
+        video.srcObject = null;
+        video.src = currentVideoObjectURL;
+        video.loop = true;
+        video.muted = true;
+        video.play().catch((err) => {
+            console.warn("Unable to play selected video file:", err);
+        });
+    });
+}
+
+// ============================================================
+// Recorder helpers
+// ============================================================
+function startRecording() {
+    if (!overlay || typeof overlay.captureStream !== "function") {
+        console.warn("overlay.captureStream is not available");
+        return;
+    }
+
+    if (recorder && recorder.state !== "inactive") {
+        recorder.stop();
+    }
+
+    chunks = [];
+    const stream = overlay.captureStream(30);
+    recorder = new MediaRecorder(stream);
+
+    recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+            chunks.push(e.data);
+        }
+    };
+
+    recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: "video/webm" });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "result.webm";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        URL.revokeObjectURL(url);
+        chunks = [];
+        recorder = null;
+    };
+
+    recorder.onerror = (event) => {
+        console.error("MediaRecorder error:", event.error);
+    };
+
+    recorder.start();
+}
+
+function stopRecording() {
+    if (recorder && recorder.state !== "inactive") {
+        recorder.stop();
+    }
+}
 
 // ============================================================
 // Clock

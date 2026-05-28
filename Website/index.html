@@ -142,7 +142,7 @@
 
             <!-- ===== PANEL: SETTINGS ===== -->
 <div class="drawer-body drawer-panel" id="panelSettings">
-    <p class="drawer-subtitle">ปรับแต่งพารามิเตอร์การวิเคราะห์</p>
+    <p class="drawer-subtitle">พารามิเตอร์การวิเคราะห์</p>
 
     <!-- ค่าที่รับมาจาก setup.html -->
     <div class="setting-group">
@@ -167,6 +167,18 @@
         </nav>
 
         <!-- ===== CAMERA ===== -->
+         <div style="position:absolute;top:200px;left:10px;z-index:50;background:rgba(255, 255, 255, 0.533);padding:10px;border-radius:6px">
+    
+    <label>
+        <input type="radio" name="mode" value="camera" checked> กล้อง
+    </label>
+    
+    <label>
+        <input type="radio" name="mode" value="video"> วิดีโอ
+    </label>
+
+    <input type="file" id="videoFile" accept="video/mp4" style="display:none" />
+</div>
         <main class="camera-area">
             <!-- Live feed -->
             <video id="video" autoplay playsinline muted></video>
