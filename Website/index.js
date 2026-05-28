@@ -851,14 +851,7 @@ function renderScorePanel() {
               <span>สมาธิ</span>
               <span>${scores.attention}</span>
             </div>
-            <div class="score-row">
-              <span>กล้ามเนื้อมัดเล็ก</span>
-              <span>${scores.fine_motor}</span>
-            </div>
-            <div class="score-row">
-              <span>กล้ามเนื้อมัดใหญ่</span>
-              <span>${scores.gross_motor}</span>
-            </div>
+            
           </div>
           <div class="score-bar-wrap">
             <div class="score-bar-fill" style="width:${avgScore}%;background:${d.color}"></div>
