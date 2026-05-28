@@ -53,61 +53,10 @@ CONF = {
 executor = ThreadPoolExecutor(max_workers=3)
 
 # ======================================================
-# Keypoint Indices (COCO 17-point format)
-# ======================================================
-KEYPOINT_IDX = {
-    "nose": 0,
-    "left_eye": 1, "right_eye": 2,
-    "left_ear": 3, "right_ear": 4,
-    "left_shoulder": 5, "right_shoulder": 6,
-    "left_elbow": 7, "right_elbow": 8,
-    "left_wrist": 9, "right_wrist": 10,
-    "left_hip": 11, "right_hip": 12,
-    "left_knee": 13, "right_knee": 14,
-    "left_ankle": 15, "right_ankle": 16,
-}
-
-# Joints for angle calculation (parent-child-grandchild)
-ANGLE_CHAINS = {
-    "fine_motor": [
-        (5, 7, 9),   # left shoulder-elbow-wrist
-        (6, 8, 10),  # right shoulder-elbow-wrist
-    ],
-    "gross_motor": [
-        (5, 11, 13),  # left shoulder-hip-knee
-        (6, 12, 14),  # right shoulder-hip-knee
-        (11, 13, 15), # left hip-knee-ankle
-        (12, 14, 16), # right hip-knee-ankle
-    ]
-}
-
-# ======================================================
-# Scoring Config
-# ======================================================
-SCORE_CONFIG = {
-    "attention": {
-        "window_sec": 3,
-        "speed_thresholds": [
-            {"min": 0,   "max": 5,   "score": 100},
-            {"min": 5,   "max": 20,  "score": 80},
-            {"min": 20,  "max": 999, "score": 50},
-        ]
-    },
-    "fine_motor": {
-        "keypoints": [5, 6, 7, 8, 9, 10],
-        "min_confidence": 0.4,
-    },
-    "gross_motor": {
-        "keypoints": [11, 12, 13, 14, 15, 16],
-        "min_confidence": 0.4,
-    }
-}
-
-# ======================================================
 # Helper Functions
 # ======================================================
 def is_center_inside(center: tuple, box: dict) -> bool:
-    """ตรวจสอบว่าจุดศูนย์กลาง (ของใบหน้า) ตกอยู่ในกล่อง (ของร่างกาย) หรือไม่"""
+    """ตรวจสอบว่าจุดศูนย์กลาง (ของใบหน้า) ตกอยู่ในกล่อง (ของร่างกาย)หรือไม่"""
     cx, cy = center
     bx, by, bw, bh = box["x"], box["y"], box["w"], box["h"]
     return (bx <= cx <= bx + bw) and (by <= cy <= by + bh)
@@ -130,38 +79,6 @@ def compute_iou(box1: dict, box2: dict) -> float:
     if union_area == 0:
         return 0.0
     return inter_area / union_area
-
-def calculate_angle(kp_a, kp_b, kp_c):
-    """
-    คำนวณมุมระหว่าง 3 keypoints (A-B-C) ที่ B เป็นจุดยอด
-    Returns: angle in degrees (0-180) or None if any point is invalid
-    """
-    if kp_a is None or kp_b is None or kp_c is None:
-        return None
-    if kp_a["conf"] < SCORE_CONFIG["fine_motor"]["min_confidence"] or \
-       kp_b["conf"] < SCORE_CONFIG["fine_motor"]["min_confidence"] or \
-       kp_c["conf"] < SCORE_CONFIG["fine_motor"]["min_confidence"]:
-        return None
-    
-    # Vector BA and BC
-    ba = np.array([kp_a["x"] - kp_b["x"], kp_a["y"] - kp_b["y"]])
-    bc = np.array([kp_c["x"] - kp_b["x"], kp_c["y"] - kp_b["y"]])
-    
-    # Magnitude
-    mag_ba = np.linalg.norm(ba)
-    mag_bc = np.linalg.norm(bc)
-    
-    if mag_ba < 1e-6 or mag_bc < 1e-6:
-        return None
-    
-    # Cosine similarity
-    cos_angle = np.dot(ba, bc) / (mag_ba * mag_bc)
-    cos_angle = np.clip(cos_angle, -1.0, 1.0)
-    
-    angle_rad = np.arccos(cos_angle)
-    angle_deg = np.degrees(angle_rad)
-    
-    return angle_deg
 
 # ======================================================
 # Model inference functions
@@ -272,130 +189,71 @@ async def root():
 
 
 # ======================================================
-# Scoring Engine
+# 🧠 NEW PURE BODY-CENTER SCORING ENGINE
 # ======================================================
 class ScoringEngine:
     def __init__(self):
-        # Historical data per track_id: {track_id: [(timestamp, center_x, center_y, keypoints), ...]}
-        self.speed_history = defaultdict(list)
-        self.angle_history = defaultdict(list)
+        # เก็บพิกัดกึ่งกลางลำตัวย้อนหลัง 3 วินาทีของเด็กแต่ละคน
+        self.center_history = defaultdict(list)
+        # ตัวแปรประคองสถานะคะแนนล่าสุดของแต่ละ Track ID (เริ่มต้นที่คะแนนเต็ม 100)
+        self.current_scores = defaultdict(lambda: {"attention": 100, "fine_motor": 100, "gross_motor": 100})
+        # ตัวแปรบันทึกรอบเวลาอัปเดต (ทุก 1 วินาทีเพื่อให้กราฟตอบสนองไวขึ้น)
         self.last_score_time = defaultdict(float)
-        self.current_scores = defaultdict(lambda: {"attention": 100, "fine_motor": 0, "gross_motor": 0})
-    def compute_attention_score(self, center_x, center_y, track_id, current_time):
+        
+    def compute_pure_center_score(self, center_x, center_y, track_id, current_time):
         """
-        วัดอัตราเร็วของจุดศูนย์กลาง
-        ถ้า 3 วิที่ผ่านมา มีความเร็วน้อย -> คะแนนสูง
+        [อัลกอริทึมใหม่เพียว 100%]: วัดเฉพาะการเคลื่อนไหวจากจุดกึ่งกลางลำตัวเท่านั้น
+        ยิ่งขยับตัวน้อย (ระยะขยับสั้น) -> สมาธิดีเยี่ยม คะแนนยิ่งมากเข้าใกล้ 100
         """
-        self.speed_history[track_id].append({
+        self.center_history[track_id].append({
             "time": current_time,
             "x": center_x,
             "y": center_y
         })
         
-        # ลบข้อมูลเก่าเกิน 3 วิ
-        cutoff_time = current_time - SCORE_CONFIG["attention"]["window_sec"]
-        self.speed_history[track_id] = [
-            h for h in self.speed_history[track_id] 
+        # ถือถังข้อมูลย้อนหลังไว้ 3 วินาที
+        cutoff_time = current_time - 3.0
+        self.center_history[track_id] = [
+            h for h in self.center_history[track_id] 
             if h["time"] >= cutoff_time
         ]
         
-        # หากมีข้อมูลไม่ถึง 2 จุด ยังไม่สามารถคำนวณได้
-        if len(self.speed_history[track_id]) < 2:
-            return None
+        if len(self.center_history[track_id]) < 2:
+            return 100  # เฟรมแรกให้คะแนนเต็มไว้ก่อน
         
-        # คำนวณระยะห่างทั้งหมด ใน 3 วิ
-        total_distance = 0
-        for i in range(1, len(self.speed_history[track_id])):
-            prev = self.speed_history[track_id][i-1]
-            curr = self.speed_history[track_id][i]
-            dist = math.sqrt(
-                (curr["x"] - prev["x"])**2 + 
-                (curr["y"] - prev["y"])**2
-            )
-            total_distance += dist
-        
-        # Thresholding
-        score = 50  # default lowest
-        for threshold in SCORE_CONFIG["attention"]["speed_thresholds"]:
-            if threshold["min"] <= total_distance < threshold["max"]:
-                score = threshold["score"]
-                break
-        
-        return score
-    
-    def compute_motor_skill_score(self, keypoints, track_id, current_time, motor_type):
-        """
-        วัดอัตราการขยับข้อต่อ โดยดูความเปลี่ยนแปลงของมุม
-        motor_type: "fine_motor" หรือ "gross_motor"
-        """
-        if not keypoints or len(keypoints) < 17:
-            return None
-        
-        # บันทึกข้อมูล
-        self.angle_history[track_id].append({
-            "time": current_time,
-            "keypoints": keypoints,
-            "motor_type": motor_type
-        })
-        
-        # ลบข้อมูลเก่าเกิน 3 วิ
-        cutoff_time = current_time - SCORE_CONFIG["attention"]["window_sec"]
-        self.angle_history[track_id] = [
-            h for h in self.angle_history[track_id] 
-            if h["time"] >= cutoff_time
-        ]
-        
-        # ต้องมีข้อมูลอย่างน้อย 2 frame
-        history_for_type = [
-            h for h in self.angle_history[track_id]
-            if h["motor_type"] == motor_type
-        ]
-        if len(history_for_type) < 2:
-            return None
-        
-        # คำนวณความเปลี่ยนแปลงของมุมในแต่ละ joint
-        angle_changes = []
-        
-        for chain in ANGLE_CHAINS[motor_type]:
-            idx_a, idx_b, idx_c = chain
+        # คำนวณระยะทางรวมที่จุดศูนย์กลางขยับย้ายที่ในรอบ 3 วินาที (Euclidean Distance)
+        total_movement = 0.0
+        for i in range(1, len(self.center_history[track_id])):
+            prev = self.center_history[track_id][i-1]
+            curr = self.center_history[track_id][i]
+            dist = math.sqrt((curr["x"] - prev["x"])**2 + (curr["y"] - prev["y"])**2)
+            total_movement += dist
             
-            # หา angle ในแต่ละ frame
-            angles = []
-            for hist in history_for_type:
-                kp = hist["keypoints"]
-                angle = calculate_angle(kp[idx_a], kp[idx_b], kp[idx_c])
-                if angle is not None:
-                    angles.append(angle)
+        # 🎯 กฎเกณฑ์การแปลงพิกัดความนิ่งเป็นคะแนน (ยิ่งขยับน้อย คะแนนยิ่งมาก):
+        # - ขยับรวม < 5 พิกเซล (อยู่นิ่งสนิท/ตัวสั่นเล็กน้อย)    -> ได้ 100 คะแนนเต็ม
+        # - ขยับรวม 5 ถึง 25 พิกเซล (ขยับตัวเล็กน้อย/เอียงตัว)   -> ได้ 85 คะแนน
+        # - ขยับรวม 25 ถึง 60 พิกเซล (เริ่มอยู่ไม่นิ่ง/ลุกขยับ)   -> ได้ 60 คะแนน
+        # - ขยับรวมเกิน 60 พิกเซลขึ้นไป (วิ่งเล่น/ขยับรุนแรงมาก) -> ได้ 35 คะแนน
+        if total_movement < 5.0:
+            score = 100
+        elif total_movement < 25.0:
+            score = 85
+        elif total_movement < 60.0:
+            score = 60
+        else:
+            score = 35
             
-            # คำนวณเฉลี่ยของการเปลี่ยนแปลง
-            if len(angles) > 1:
-                for i in range(1, len(angles)):
-                    change = abs(angles[i] - angles[i-1])
-                    angle_changes.append(change)
-        
-        # ถ้าไม่มี angle change ให้คะแนน 0
-        if not angle_changes:
-            return 0
-        
-        # คำนวณเฉลี่ยการเปลี่ยนแปลง (degree per frame)
-        avg_change = sum(angle_changes) / len(angle_changes)
-        
-        # Scaling: 0 degree → 0 point, 30+ degree → 100 point
-        score = min(100, int((avg_change / 30.0) * 100))
-        
         return score
     
     def should_update_score(self, track_id, current_time):
-        """ตรวจสอบว่าควร update score ทุก 3 วิหรือไม่"""
+        """ตรวจสอบรอบการอัปเดตทุกๆ 1 วินาที เพื่อให้แสดงผลลัพธ์ลื่นไหลขึ้น"""
         if track_id not in self.last_score_time:
             self.last_score_time[track_id] = current_time
             return True
         
-        elapsed = current_time - self.last_score_time[track_id]
-        if elapsed >= SCORE_CONFIG["attention"]["window_sec"]:
+        if current_time - self.last_score_time[track_id] >= 1.0:
             self.last_score_time[track_id] = current_time
             return True
-        
         return False
 
 
@@ -415,8 +273,8 @@ async def websocket_endpoint(websocket: WebSocket):
     # Receive parameters from client
     init_msg = await websocket.receive_text()
     params = json.loads(init_msg) if init_msg else {}
-    play_method = params.get("playMethod", "standing")  # sitting or standing
-    objective = params.get("objective", "attention")      # attention, fine_motor, gross_motor
+    play_method = params.get("playMethod", "standing")  
+    objective = params.get("objective", "attention")      
     game_name = params.get("gameName", "Unknown")
 
     print(f"  📋 PlayMethod: {play_method} | Objective: {objective} | Game: {game_name}")
@@ -475,7 +333,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 if matched_track_id is not None:
                     pose_to_track_map[id(pose)] = matched_track_id
 
-            # ขั้นตอนที่ 3: สร้างข้อมูลรายบุคคลแบบเต็ม + คำนวณคะแนน
+            # ขั้นตอนที่ 3: สร้างข้อมูลรายบุคคลแบบเต็ม + คำนวณคะแนนตามจุดกึ่งกลางลำตัวเพียวๆ
             tracked_children = []
             
             for human in boxes_human:
@@ -495,41 +353,26 @@ async def websocket_endpoint(websocket: WebSocket):
                         break
 
                 # ==================================================
-                # 🎯 คำนวณคะแนนตามแต่ละประเภท
+                # 🎯 คำนวณคะแนนโดยอ้างอิงจุดกึ่งกลางลำตัวเพียวอย่างเดียว (แก้ไขใหม่)
                 # ==================================================
-                scores = {}
-                
-                # ==================================================
-                # 🎯 [แก้ไขบั๊ก]: คำนวณคะแนนตามแต่ละประเภท (ประคองค่าคะแนนล่าสุด)
-                # ==================================================
-                
-                # ตรวจสอบว่าครบรอบ 3 วินาทีที่ต้องประมวลผลหรือไม่
                 if scoring_engine.should_update_score(tid, current_time):
-                    
-                    # 1. คำนวณ Attention Score
-                    att_score = scoring_engine.compute_attention_score(center_x, center_y, tid, current_time)
-                    if att_score is not None:
-                        scoring_engine.current_scores[tid]["attention"] = att_score
-                    
-                    # 2. คำนวณ Fine Motor Score
-                    fm_score = scoring_engine.compute_motor_skill_score(associated_kps, tid, current_time, "fine_motor")
-                    if fm_score is not None:
-                        scoring_engine.current_scores[tid]["fine_motor"] = fm_score
-                    
-                    # 3. คำนวณ Gross Motor Score
-                    gm_score = scoring_engine.compute_motor_skill_score(associated_kps, tid, current_time, "gross_motor")
-                    if gm_score is not None:
-                        scoring_engine.current_scores[tid]["gross_motor"] = gm_score
+                    # เรียกใช้อัลกอริทึมใหม่เพียวๆ
+                    calculated_score = scoring_engine.compute_pure_center_score(
+                        center_x, center_y, tid, current_time
+                    )
+                    # จ่ายค่าคะแนนเดียวกันให้ทั้ง 3 ออบเจกต์เพื่อไม่ให้หน้าบ้านเกิด Error ไม่ว่าจะรันโหมดใดอยู่ก็ตาม
+                    scoring_engine.current_scores[tid] = {
+                        "attention": calculated_score,
+                        "fine_motor": calculated_score,
+                        "gross_motor": calculated_score
+                    }
 
-                # ดึงค่าคะแนนล่าสุดที่มีการบันทึกไว้ส่งออกไป (ไม่เป็น 0 ในเฟรมย่อยอีกต่อไป)
+                # ดึงสถานะคะแนนล่าสุดส่งออกไปในทุกเฟรม (แก้บั๊กคะแนนเป็น 0)
                 scores = scoring_engine.current_scores[tid]
 
                 # Filter display based on play_method
-                display_human = True
                 display_pose_lower = True
-                
                 if play_method == "sitting":
-                    # สำหรับ sitting ไม่ต้องแสดง lower body keypoints
                     display_pose_lower = False
 
                 tracked_children.append({
