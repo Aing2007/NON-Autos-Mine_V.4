@@ -1,552 +1,551 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>NON | Setup Activity</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NON | Setup Activity</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        :root {
-            --sans: 'Roboto', 'Lato', sans-serif;
-            --mono: 'Courier New', monospace;
+:root {
+  --bg: #f5f0e8;
+  --white: #ffffff;
+  --ink: #2d2a26;
+  --ink-soft: #6b6560;
+  --red: #e54e2e;
+  --orange: #f4a020;
+  --teal: #4dbf8a;
+  --purple: #7b6ee8;
+  --col-human: #4a7fc1;
+  --col-face: #e05252;
+  --col-pose: #4abf80;
+  --shadow: 0 4px 24px rgba(0,0,0,0.08);
+}
 
-            --bg:       #f2efe9;
-            --surface:  #ede9e1;
-            --surface2: #e5e0d6;
+html, body {
+  min-height: 100%;
+  background: url('image/BG.png') no-repeat center center fixed;
+  background-size: cover;
+  font-family: 'Nunito', 'Sarabun', sans-serif;
+  overflow-x: hidden;
+}
 
-            --ink:    #000000;
-            --ink-2:  #000000;
-            --ink-3:  #2e2727;
+/* ===== HEADER ===== */
+.header {
+  position: relative; z-index: 10;
+  height: 72px;
+  background: var(--white);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 24px;
+}
 
-            --border:   rgba(26,24,20,0.18);
-            --border-s: rgba(26,24,20,0.10);
+/* Logo avatar — slot for girl icon image */
+.logo-avatar {
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #f0ebe0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.6rem;
+  color: var(--ink-soft);
+  text-align: center;
+  line-height: 1.2;
+  border: 2px solid #e0d9ce;
+  cursor: pointer;
+}
+.logo-avatar img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.logo-avatar .placeholder-text { pointer-events: none; }
 
-            --col-human: #0b6fb8;
-            --col-face:  #b12f12;
-            --col-pose:  #148a4f;
+.header-title {
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  text-transform: uppercase;
+}
 
-            --red:  #d94040;
-            --warn: #c97a1a;
-        }
+.ws-pills { display: flex; gap: 8px; }
 
-        html, body {
-            min-height: 100%;
-            background: var(--bg);
-            color: var(--ink);
-            font-family: var(--sans);
-            font-weight: 400;
-            -webkit-font-smoothing: antialiased;
-        }
+.ws-pill {
+  display: flex; align-items: center; gap: 6px;
+  border-radius: 99px;
+  padding: 5px 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border: 2px solid;
+}
+.pill-dot { width: 9px; height: 9px; border-radius: 50%; }
+.pill-human { border-color: #4a7fc155; color: var(--col-human); background: #4a7fc110; }
+.pill-face  { border-color: #e0525255; color: var(--col-face);  background: #e0525210; }
+.pill-pose  { border-color: #4abf8055; color: var(--col-pose);  background: #4abf8010; }
 
-        /* ---- HEADER ---- */
-        .header {
-            height: 80px;
-            background: var(--surface);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            padding: 0 20px;
-        }
+.header-right {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 14px;
+}
 
-        .header-title {
-            font-family: var(--mono);
-            font-size: 1.5rem;
-            font-weight: 700;
-            letter-spacing: 0.18em;
-            color: var(--ink);
-            text-transform: uppercase;
-        }
+.clock-pill {
+  display: flex; align-items: center; gap: 7px;
+  border: 2px solid rgba(0,0,0,0.1);
+  border-radius: 99px;
+  padding: 5px 14px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  background: var(--bg);
+}
 
-        .header-time {
-            margin-left: auto;
-            font-family: var(--mono);
-            font-size: 0.9rem;
-            color: var(--ink-3);
-            letter-spacing: 0.06em;
-        }
+/* Home button — slot for house image */
+.home-btn {
+  width: 42px; height: 42px;
+  border-radius: 12px;
+  background: var(--bg);
+  border: 2px solid rgba(0,0,0,0.1);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+  text-decoration: none;
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 0.55rem;
+  text-align: center;
+  line-height: 1.3;
+}
+.home-btn:hover { background: #ebe4d8; }
+.home-btn img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
 
-        .ws-pill {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            border: 1px solid var(--border);
-            border-radius: 99px;
-            padding: 5px 10px;
-            font-family: var(--mono);
-            font-size: 0.8rem;
-            letter-spacing: 0.06em;
-            color: var(--ink-3);
-        }
+/* ===== PAGE ===== */
+.page {
+  position: relative; z-index: 1;
+  display: flex; justify-content: center;
+  padding: 40px 20px 80px;
+  min-height: calc(100vh - 72px);
+}
 
-        .pill-dot {
-            width: 10px; height: 10px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
+/* ===== CARD ===== */
+.card {
+  width: 100%; max-width: 880px;
+  background: var(--white);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  animation: card-in 0.5s cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(24px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
 
-        /* ---- PAGE LAYOUT ---- */
-        .page {
-            display: flex;
-            align-items: flex-start;
-            justify-content: center;
-            min-height: calc(100vh - 44px);
-            padding: 40px 20px 60px;
-        }
+.card-header { padding: 28px 32px 10px; }
 
-        /* ---- CARD ---- */
-        .card {
-            width: 100%;
-            max-width: 950px;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            overflow: hidden;
-            animation: card-in 0.42s cubic-bezier(.4,0,.2,1) both;
-        }
+.card-title {
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--purple);
+  font-family: 'Nunito', sans-serif;
+}
+.card-subtitle {
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+  margin-top: 2px;
+  font-family: 'Sarabun', sans-serif;
+  font-weight: 600;
+}
 
-        @keyframes card-in {
-            from { opacity: 0; transform: translateY(18px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
+.card-body { padding: 10px 32px 0; }
 
-        /* Card header bar */
-        .card-header {
-            background: var(--surface2);
-            border-bottom: 1px solid var(--border);
-            padding: 14px 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
+/* ===== FORM ROWS ===== */
+.form-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 0;
+  border-bottom: 1.5px solid #f0ebe2;
+  animation: row-in 0.4s cubic-bezier(.22,1,.36,1) both;
+}
+.form-row:last-child { border-bottom: none; }
+.form-row:nth-child(1) { animation-delay: 0.08s; }
+.form-row:nth-child(2) { animation-delay: 0.15s; }
+.form-row:nth-child(3) { animation-delay: 0.22s; }
+@keyframes row-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
 
-        
+/* Number badge */
+.num-badge {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem;
+  font-weight: 900;
+  color: white;
+  flex-shrink: 0;
+}
+.num-badge.red    { background: var(--red); }
+.num-badge.orange { background: var(--orange); }
+.num-badge.teal   { background: var(--teal); }
 
-        .card-header-text { flex: 1; }
+/* Chips */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; }
 
-        .card-title {
-            font-family: var(--mono);
-            font-size: 1.5rem;
-            font-weight: 1000;
-            letter-spacing: 0.14em;
-            text-transform: uppercase;
-            color: var(--ink);
-        }
+.chip {
+  font-family: 'Sarabun', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 7px 18px;
+  border-radius: 99px;
+  border: 2px solid #e0d9ce;
+  background: white;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(.22,1,.36,1);
+  white-space: nowrap;
+  user-select: none;
+}
+.chip:hover { border-color: #c8bfb0; color: var(--ink); transform: translateY(-1px); }
 
-        .card-subtitle {
-            font-family: var(--mono);
-            font-size: 0.9rem;
-            color: var(--ink-3);
-            letter-spacing: 0.02em;
-            margin-top: 10px;
-            
-        }
+.chip.active {
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+}
+/* Row 1 — red */
+.chip.red.active  { background: var(--red); }
+/* Row 2 — all chips use orange (same as badge) */
+.chip.obj.active  { background: var(--orange); }
+/* Row 3 — teal */
+.chip.teal.active { background: var(--teal); }
 
+/* Custom game input */
+.custom-input-wrap { margin-top: 8px; margin-left: 60px; }
+.custom-input {
+  font-family: 'Sarabun', sans-serif;
+  font-size: 0.9rem;
+  padding: 8px 16px;
+  border: 2px solid #e0d9ce;
+  border-radius: 12px;
+  outline: none;
+  width: 100%;
+  max-width: 340px;
+  color: var(--ink);
+  transition: border-color 0.2s;
+}
+.custom-input:focus { border-color: var(--teal); }
+.custom-input.hidden { display: none; }
 
-        /* ---- FORM BODY ---- */
-        .card-body {
-            padding: 24px 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 0;
-        }
+/* ===== SUMMARY BAR ===== */
+.summary-bar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 20px 32px;
+  background: #faf7f2;
+  border-top: 1.5px solid #f0ebe2;
+  margin-top: 8px;
+}
+.sum-item {
+  flex: 1 1 160px;
+  background: white;
+  border-radius: 16px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  min-width: 140px;
+}
+.sum-icon {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+.sum-icon.yellow { background: #fff3d4; }
+.sum-icon.green  { background: #d4f5e8; }
+.sum-icon.purple { background: #ede8ff; }
+.sum-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: 'Nunito', sans-serif;
+}
+.sum-val {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--ink);
+  margin-top: 1px;
+  font-family: 'Nunito', sans-serif;
+}
 
-        /* ---- FORM GROUP ---- */
-        .form-group {
-            padding: 16px 0;
-            border-bottom: 1px solid var(--border-s);
-            animation: item-in 0.35s cubic-bezier(.4,0,.2,1) both;
-        }
+/* ===== FOOTER ===== */
+.card-footer { padding: 0 32px 28px; }
 
-        .form-group:nth-child(1) { animation-delay: 0.06s; }
-        .form-group:nth-child(2) { animation-delay: 0.12s; }
-        .form-group:nth-child(3) { animation-delay: 0.18s; }
+.btn-start {
+  width: 100%;
+  background: linear-gradient(135deg, #7b6ee8 0%, #5a4dcf 100%);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  padding: 16px 24px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  box-shadow: 0 6px 20px rgba(123,110,232,0.4);
+  transition: transform 0.18s, box-shadow 0.18s;
+}
+.btn-start:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(123,110,232,0.45); }
+.btn-start:active { transform: scale(0.99); }
+.btn-arrow { font-size: 1.2rem; transition: transform 0.2s; }
+.btn-start:hover .btn-arrow { transform: translateX(4px); }
 
-        @keyframes item-in {
-            from { opacity: 0; transform: translateX(-10px); }
-            to   { opacity: 1; transform: translateX(0); }
-        }
-
-        .form-group:last-of-type { border-bottom: none; }
-
-        .form-row {
-            display: flex;
-            align-items: baseline;
-            gap: 12px;
-            margin-bottom: 10px;
-        }
-
-        .form-index {
-            font-family: var(--mono);
-            font-size: 1.4rem;
-            color: var(--ink-3);
-            letter-spacing: 0.08em;
-            min-width: 16px;
-            padding-top: 1px;
-        }
-
-        .form-label {
-            font-family: var(--mono);
-            font-size: 1.5rem;
-            font-weight: 700;
-            letter-spacing: 0.02em;
-            color: var(--ink);
-            text-transform: uppercase;
-        }
-
-        /* ---- CHIP GROUP (replaces boring <select>) ---- */
-        .chip-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            padding-left: 45px;
-        }
-
-        .chip-opt {
-            font-family: var(--mono);
-            font-size: 0.9rem;
-            letter-spacing: 0.05em;
-            padding: 5px 14px;
-            border: 1px solid var(--border);
-            border-radius: 99px;
-            background: transparent;
-            color: var(--ink-3);
-            cursor: pointer;
-            transition: background 0.18s, border-color 0.18s, color 0.18s;
-            user-select: none;
-        }
-
-        .chip-opt:hover {
-            background: var(--surface2);
-            border-color: rgba(26,24,20,0.3);
-            color: var(--ink);
-        }
-
-        .chip-opt.active {
-            background: var(--ink);
-            border-color: var(--ink);
-            color: var(--bg);
-        }
-
-        /* color-coded chips for objective */
-        .chip-opt[data-color="human"].active  { background: var(--col-human); border-color: var(--col-human); }
-        .chip-opt[data-color="face"].active   { background: var(--col-face);  border-color: var(--col-face); }
-        .chip-opt[data-color="pose"].active   { background: var(--col-pose);  border-color: var(--col-pose); }
-
-        /* Hidden native inputs (values passed via form) */
-        .hidden { display: none; }
-
-        /* ---- Game name (text input) ---- */
-        .game-input-wrap {
-            padding-left: 28px;
-            margin-top: 6px;
-        }
-
-        .game-input {
-            width: 100%;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 2px;
-            padding: 7px 12px;
-            font-family: var(--mono);
-            font-size: 0.8rem;
-            color: var(--ink);
-            letter-spacing: 0.04em;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .game-input::placeholder { color: var(--ink-3); }
-
-        .game-input:focus {
-            border-color: rgba(26,24,20,0.45);
-        }
-
-        .game-input.hidden { display: none; }
-
-        /* ---- SUMMARY BAR ---- */
-        .summary-bar {
-            background: rgba(245, 241, 236, 0.95);
-            border: 1px solid rgba(26,24,20,0.12);
-            border-radius: 14px;
-            padding: 18px 22px;
-            display: flex;
-            justify-content: center;
-            gap: 18px;
-            flex-wrap: wrap;
-            margin: 0 auto 18px;
-            max-width: 760px;
-        }
-
-        .summary-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 6px;
-            padding: 12px 18px;
-            border-radius: 12px;
-            background: rgba(255,255,255,0.88);
-            box-shadow: inset 0 0 0 1px rgba(26,24,20,0.05);
-            flex: 1 1 160px;
-            min-width: 140px;
-            text-align: center;
-        }
-
-        .summary-key {
-            font-family: var(--mono);
-            font-size: 0.78rem;
-            color: var(--ink-3);
-            text-transform: uppercase;
-            letter-spacing: 0.12em;
-            font-weight: 700;
-            line-height: 1.2;
-            margin: 0;
-        }
-
-        .summary-val {
-            font-family: var(--mono);
-            font-size: 1.05rem;
-            font-weight: 700;
-            color: var(--ink);
-            letter-spacing: 0.02em;
-            margin: 0;
-        }
-
-        /* ---- SUBMIT BUTTON ---- */
-        .card-footer {
-            padding: 16px 20px 20px;
-        }
-
-        .btn-submit {
-            width: 100%;
-            background: var(--ink);
-            color: var(--bg);
-            border: none;
-            border-radius: 2px;
-            padding: 12px 20px;
-            font-family: var(--mono);
-            font-size: 0.72rem;
-            font-weight: 700;
-            letter-spacing: 0.14em;
-            text-transform: uppercase;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            transition: opacity 0.18s, transform 0.15s;
-        }
-
-        .btn-submit:hover { opacity: 0.85; }
-        .btn-submit:active { transform: scale(0.99); }
-
-        .btn-arrow {
-            font-size: 1rem;
-            transition: transform 0.2s;
-        }
-
-        .btn-submit:hover .btn-arrow { transform: translateX(4px); }
-
-        /* ---- RESPONSIVE ---- */
-        @media (max-width: 560px) {
-            .page { padding: 20px 12px 40px; }
-            .card-body { padding: 16px 14px; }
-        }
-    </style>
+@media (max-width: 600px) {
+  .card-header, .card-body, .card-footer { padding-left: 20px; padding-right: 20px; }
+  .summary-bar { padding: 16px 20px; }
+  .ws-pills { display: none; }
+  .card-title { font-size: 1.5rem; }
+}
+</style>
 </head>
 <body>
 
-<!-- HEADER — matches index.html -->
+<!-- HEADER -->
 <header class="header">
-    <div class="header-title">NON-Autos&nbsp;Mine</div>
 
-    <div class="ws-pill" style="border-color:rgba(0,128,255,0.3)">
-        <span class="pill-dot" style="background:#0080ff"></span>
-        <span style="color:#0080ff">HUMAN</span>
+  <!-- Girl icon — replace src with your image URL -->
+  <div class="logo-avatar" title="คลิกเพื่อเปลี่ยนรูป" onclick="document.getElementById('girlImgInput').click()">
+    <img id="girlImg" src="image/logo.png" alt="" style="display:block">
+    <input type="file" id="girlImgInput" accept="image/*" style="display:none">
+  </div>
+
+  <div class="header-title">NON-Autos&nbsp;Mine</div>
+
+  <div class="ws-pills">
+    <div class="ws-pill pill-human">
+      <span class="pill-dot" style="background:var(--col-human)"></span>
+      HUMAN
     </div>
-    <div class="ws-pill" style="border-color:rgba(255,64,129,0.3)">
-        <span class="pill-dot" style="background:#ff4081"></span>
-        <span style="color:rgba(255,64,129,0.8)">FACE</span>
+    <div class="ws-pill pill-face">
+      <span class="pill-dot" style="background:var(--col-face)"></span>
+      FACE
     </div>
-    <div class="ws-pill" style="border-color:rgb(32,177,0)">
-        <span class="pill-dot" style="background:rgb(32,177,0)"></span>
-        <span style="color:rgb(32,177,0)">POSE</span>
+    <div class="ws-pill pill-pose">
+      <span class="pill-dot" style="background:var(--col-pose)"></span>
+      POSE
+    </div>
+  </div>
+
+  <div class="header-right">
+    <div class="clock-pill">
+      <span>⏱</span>
+      <span id="clock">00 : 00 : 00</span>
     </div>
 
-    <div class="header-time" id="clock">00:00:00</div>
+    <!-- Home icon — replace src with your image URL -->
+    <a href="#" class="home-btn" title="Home" onclick="document.getElementById('houseImgInput').click(); return false;">
+      <img id="houseImg" src="image/class.png" alt="Home" style="display:block">
+      <input type="file" id="houseImgInput" accept="image/*" style="display:none">
+    </a>
+  </div>
 </header>
 
 <!-- PAGE -->
 <main class="page">
-    <div class="card">
+  <div class="card">
 
-        <!-- Card Header -->
-        <div class="card-header">
-            <div class="card-header-text">
-                <div class="card-title">Setup&nbsp;Activity</div>
-                <div class="card-subtitle">ตั้งค่าก่อนเริ่มประมวลผล&nbsp;AI</div>
-            </div>
-           
+    <div class="card-header">
+      <div class="card-title">Setup Activity</div>
+      <div class="card-subtitle">ตั้งค่าก่อนเริ่มประมวลผล AI</div>
+    </div>
+
+    <form id="setupForm" action="index.html" method="GET">
+      <input type="hidden" id="hPlayMethod" name="playMethod" value="standing">
+      <input type="hidden" id="hObjective"  name="objective"  value="attention">
+      <input type="hidden" id="hGameName"   name="gameName"   value="เกมลากเส้นตามรอยประ">
+
+      <div class="card-body">
+
+        <!-- Row 1: วิธีเล่น (red) -->
+        <div class="form-row">
+          <div class="num-badge red">1</div>
+          <div class="chips" id="chips-play">
+            <button type="button" class="chip red active" data-val="standing">ยืนเล่น · Standing</button>
+            <button type="button" class="chip red" data-val="sitting">นั่งเล่น · Sitting</button>
+          </div>
         </div>
 
-        <!-- Hidden actual form inputs — updated by JS -->
-        <form id="setupForm" action="index.html" method="GET">
-            <input type="hidden" name="playMethod" id="hPlayMethod" value="sitting">
-            <input type="hidden" name="objective"  id="hObjective"  value="attention">
-            <input type="hidden" name="gameName"   id="hGameName"   value="เกมแปรงฟัน">
+        <!-- Row 2: วัตถุประสงค์ (orange — same as badge) -->
+        <div class="form-row">
+          <div class="num-badge orange">2</div>
+          <div class="chips" id="chips-obj">
+            <button type="button" class="chip obj active" data-val="attention">ฝึกสมาธิ · Attention</button>
+            <button type="button" class="chip obj" data-val="fine_motor">กล้ามเนื้อมัดเล็ก · Fine Motor</button>
+            <button type="button" class="chip obj" data-val="gross_motor">กล้ามเนื้อมัดใหญ่ · Gross Motor</button>
+          </div>
+        </div>
 
-            <!-- FORM BODY -->
-            <div class="card-body">
+        <!-- Row 3: ชื่อเกม (teal) -->
+        <div class="form-row" style="flex-wrap:wrap">
+          <div class="num-badge teal">3</div>
+          <div class="chips" id="chips-game">
+            <button type="button" class="chip teal active" data-val="เกมลากเส้นตามรอยประ">เกมลากเส้นตามรอยประ</button>
+            <button type="button" class="chip teal" data-val="เกมแปรงฟัน">เกมแปรงฟัน</button>
+            <button type="button" class="chip teal" data-val="custom">อื่นๆ…</button>
+          </div>
+          <div class="custom-input-wrap" style="width:100%">
+            <input type="text" class="custom-input hidden" id="gameNameCustom"
+              placeholder="ระบุชื่อเกมที่ต้องการ…">
+          </div>
+        </div>
 
-                <!-- 01: วิธีที่เล่นเกม -->
-                <div class="form-group">
-                    <div class="form-row">
-                        <span class="form-index">1)</span>
-                        <label class="form-label">วิธีที่ใช้เล่นเกม</label>
-                    </div>
-                    <div class="chip-group" id="chips-play">
-                        <button type="button" class="chip-opt active" data-val="sitting">นั่งเล่น&ensp;·&ensp;Sitting</button>
-                        <button type="button" class="chip-opt" data-val="standing">ยืนเล่น&ensp;·&ensp;Standing</button>
-                    </div>
-                </div>
+      </div>
 
-                <!-- 02: วัตถุประสงค์ -->
-                <div class="form-group">
-                    <div class="form-row">
-                        <span class="form-index">2)</span>
-                        <label class="form-label">วัตถุประสงค์ของเกม</label>
-                    </div>
-                    <div class="chip-group" id="chips-obj">
-                        <button type="button" class="chip-opt active" data-val="attention" data-color="human">ฝึกสมาธิ&ensp;·&ensp;Attention</button>
-                        <button type="button" class="chip-opt" data-val="fine_motor" data-color="face">กล้ามเนื้อมัดเล็ก&ensp;·&ensp;Fine Motor</button>
-                        <button type="button" class="chip-opt" data-val="gross_motor" data-color="pose">กล้ามเนื้อมัดใหญ่&ensp;·&ensp;Gross Motor</button>
-                    </div>
-                </div>
+      <!-- Summary bar -->
+      <div class="summary-bar">
+        <div class="sum-item">
+          <div class="sum-icon yellow">🕹️</div>
+          <div>
+            <div class="sum-label">การเล่น</div>
+            <div class="sum-val" id="sumPlay">ยืนเล่น</div>
+          </div>
+        </div>
+        <div class="sum-item">
+          <div class="sum-icon green">🎯</div>
+          <div>
+            <div class="sum-label">วัตถุประสงค์</div>
+            <div class="sum-val" id="sumObj">ฝึกสมาธิ</div>
+          </div>
+        </div>
+        <div class="sum-item">
+          <div class="sum-icon purple">🎮</div>
+          <div>
+            <div class="sum-label">ชื่อเกม</div>
+            <div class="sum-val" id="sumGame">เกมลากเส้นตามรอยประ</div>
+          </div>
+        </div>
+      </div>
 
-                <!-- 03: ชื่อเกม -->
-                <div class="form-group">
-                    <div class="form-row">
-                        <span class="form-index">3)</span>
-                        <label class="form-label">ชื่อเกม</label>
-                    </div>
-                    <div class="chip-group" id="chips-game">
-                        <button type="button" class="chip-opt active" data-val="เกมแปรงฟัน">เกมแปรงฟัน</button>
-                        <button type="button" class="chip-opt" data-val="เกมลากเส้น">เกมลากเส้นตามรอยประ</button>
-                        <button type="button" class="chip-opt" data-val="custom">อื่นๆ…</button>
-                    </div>
-                    <div class="game-input-wrap" id="customWrap">
-                        <input type="text" class="game-input hidden" id="gameNameCustom"
-                               placeholder="ระบุชื่อเกมที่ต้องการ…">
-                    </div>
-                </div>
-
-            </div><!-- /card-body -->
-
-            <!-- SUMMARY BAR -->
-            <div class="summary-bar">
-                <div class="summary-item">
-                    <span class="summary-key">การเล่น</span>
-                    <span class="summary-val" id="sumPlay">นั่งเล่น</span>
-                </div>
-                <div class="summary-item">
-                    <span class="summary-key">วัตถุประสงค์</span>
-                    <span class="summary-val" id="sumObj">ฝึกสมาธิ</span>
-                </div>
-                <div class="summary-item">
-                    <span class="summary-key">ชื่อเกม</span>
-                    <span class="summary-val" id="sumGame">เกมแปรงฟัน</span>
-                </div>
-            </div>
-
-            <!-- FOOTER / SUBMIT -->
-            <div class="card-footer">
-                <button type="submit" class="btn-submit">
-                    <span>เริ่มกิจกรรม&nbsp;&&nbsp;ประมวลผล&nbsp;AI</span>
-                    <span class="btn-arrow">→</span>
-                </button>
-            </div>
-
-        </form>
-    </div>
+      <div class="card-footer">
+        <button type="submit" class="btn-start">
+          <span>เริ่มกิจกรรม &amp; ประมวลผล AI</span>
+          <span class="btn-arrow">→</span>
+        </button>
+      </div>
+    </form>
+  </div>
 </main>
 
 <script>
-    // ---- Clock ----
-    function tick() {
-        document.getElementById("clock").textContent =
-            new Date().toLocaleTimeString("th-TH", { hour12: false });
+// ---- Clock ----
+const clockEl = document.getElementById('clock');
+function tick() {
+  const t = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  clockEl.textContent = `${pad(t.getHours())} : ${pad(t.getMinutes())} : ${pad(t.getSeconds())}`;
+}
+tick(); setInterval(tick, 1000);
+
+// ---- Image upload helpers ----
+function bindImageSlot(inputId, imgId, placeholderId) {
+  const input = document.getElementById(inputId);
+  const img   = document.getElementById(imgId);
+  const ph    = document.getElementById(placeholderId);
+  input.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    img.src = url;
+    img.style.display = 'block';
+    if (ph) ph.style.display = 'none';
+  });
+}
+bindImageSlot('girlImgInput',  'girlImg',  'girlPlaceholder');
+bindImageSlot('houseImgInput', 'houseImg', 'housePlaceholder');
+
+// ---- Chip groups ----
+const playLabels = { standing: 'ยืนเล่น', sitting: 'นั่งเล่น' };
+const objLabels  = { attention: 'ฝึกสมาธิ', fine_motor: 'กล้ามเนื้อมัดเล็ก', gross_motor: 'กล้ามเนื้อมัดใหญ่' };
+
+function setupChips(groupId, hiddenId, sumId, labelMap) {
+  const grp = document.getElementById(groupId);
+  const hid = document.getElementById(hiddenId);
+  const sum = document.getElementById(sumId);
+  grp.querySelectorAll('.chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      grp.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      const v = btn.dataset.val;
+      hid.value = v;
+      if (sum && labelMap) sum.textContent = labelMap[v] || btn.textContent.split('·')[0].trim();
+    });
+  });
+}
+setupChips('chips-play', 'hPlayMethod', 'sumPlay', playLabels);
+setupChips('chips-obj',  'hObjective',  'sumObj',  objLabels);
+
+// ---- Game chips ----
+const gameGrp = document.getElementById('chips-game');
+const hGame   = document.getElementById('hGameName');
+const sumGame = document.getElementById('sumGame');
+const custInp = document.getElementById('gameNameCustom');
+
+gameGrp.querySelectorAll('.chip').forEach(btn => {
+  btn.addEventListener('click', () => {
+    gameGrp.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    const v = btn.dataset.val;
+    if (v === 'custom') {
+      custInp.classList.remove('hidden');
+      custInp.focus();
+      hGame.value = '';
+      sumGame.textContent = '—';
+    } else {
+      custInp.classList.add('hidden');
+      hGame.value = v;
+      sumGame.textContent = v;
     }
-    tick();
-    setInterval(tick, 1000);
+  });
+});
 
-    // ---- Chip groups ----
-    const playLabels = { sitting: "นั่งเล่น", standing: "ยืนเล่น" };
-    const objLabels  = { attention: "ฝึกสมาธิ", fine_motor: "กล้ามเนื้อมัดเล็ก", gross_motor: "กล้ามเนื้อมัดใหญ่" };
+custInp.addEventListener('input', () => {
+  hGame.value = custInp.value.trim();
+  sumGame.textContent = custInp.value.trim() || '—';
+});
 
-    function setupChips(groupId, hiddenId, summaryId, labelMap) {
-        const group   = document.getElementById(groupId);
-        const hidden  = document.getElementById(hiddenId);
-        const summary = document.getElementById(summaryId);
-        if (!group) return;
-
-        group.querySelectorAll(".chip-opt").forEach(btn => {
-            btn.addEventListener("click", () => {
-                group.querySelectorAll(".chip-opt").forEach(c => c.classList.remove("active"));
-                btn.classList.add("active");
-                const val = btn.dataset.val;
-                hidden.value = val;
-                if (summary && labelMap) {
-                    summary.textContent = labelMap[val] || btn.textContent.split("·")[0].trim();
-                }
-            });
-        });
-    }
-
-    setupChips("chips-play", "hPlayMethod", "sumPlay", playLabels);
-    setupChips("chips-obj",  "hObjective",  "sumObj",  objLabels);
-
-    // ---- Game name chips (special: custom input) ----
-    const gameChips    = document.getElementById("chips-game");
-    const hGameName    = document.getElementById("hGameName");
-    const sumGame      = document.getElementById("sumGame");
-    const customInput  = document.getElementById("gameNameCustom");
-
-    gameChips.querySelectorAll(".chip-opt").forEach(btn => {
-        btn.addEventListener("click", () => {
-            gameChips.querySelectorAll(".chip-opt").forEach(c => c.classList.remove("active"));
-            btn.classList.add("active");
-            const val = btn.dataset.val;
-            if (val === "custom") {
-                customInput.classList.remove("hidden");
-                customInput.focus();
-                hGameName.value = "";
-                sumGame.textContent = "—";
-            } else {
-                customInput.classList.add("hidden");
-                hGameName.value = val;
-                sumGame.textContent = val;
-            }
-        });
-    });
-
-    customInput.addEventListener("input", () => {
-        hGameName.value = customInput.value.trim();
-        sumGame.textContent = customInput.value.trim() || "—";
-    });
-
-    // ---- Validate before submit ----
-    document.getElementById("setupForm").addEventListener("submit", e => {
-        const gameActive = gameChips.querySelector(".chip-opt.active");
-        if (gameActive && gameActive.dataset.val === "custom" && !customInput.value.trim()) {
-            e.preventDefault();
-            customInput.style.borderColor = "var(--red)";
-            customInput.focus();
-            setTimeout(() => customInput.style.borderColor = "", 1800);
-        }
-    });
+// ---- Validate ----
+document.getElementById('setupForm').addEventListener('submit', e => {
+  const active = gameGrp.querySelector('.chip.active');
+  if (active?.dataset.val === 'custom' && !custInp.value.trim()) {
+    e.preventDefault();
+    custInp.style.borderColor = '#e54e2e';
+    custInp.focus();
+    setTimeout(() => custInp.style.borderColor = '', 1800);
+  }
+});
 </script>
 </body>
 </html>
