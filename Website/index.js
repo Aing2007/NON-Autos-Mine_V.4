@@ -48,7 +48,7 @@ const DRAW = {
     // --- สีพิเศษ ---
     centerDotColor: "#ff3333",
 
-    // --- สี skeleton แยกฝั่ง (ต่อด้วย alpha จาก DRAW.alpha.skeletonEdge) ---
+    // --- สี skeleton แยกฝั่ง ---
     skeletonColor: {
         face: "rgba(200,200,255,",  // ส่วนหัว
         center: "rgba(105,255,71,",   // กลางลำตัว
@@ -85,13 +85,6 @@ const OBJ_LABEL = {
     gross_motor: "กล้ามเนื้อมัดใหญ่",
 };
 
-// Map objective → activity chip ที่ควร active
-const OBJ_TO_ACTIVITY = {
-    attention:   "general",
-    fine_motor:  "rehab",
-    gross_motor: "sport",
-};
-
 function applySetupParams() {
     // แสดงค่าใน info block
     const elPlay = document.getElementById("infoPlayMethod");
@@ -101,18 +94,14 @@ function applySetupParams() {
     if (elPlay) elPlay.textContent = PLAY_LABEL[SETUP.playMethod] || SETUP.playMethod;
     if (elObj)  elObj.textContent  = OBJ_LABEL[SETUP.objective]   || SETUP.objective;
     if (elGame) elGame.textContent = decodeURIComponent(SETUP.gameName);
-
-    // Auto-select chip "ประเภทกิจกรรม" ตาม objective
-    const targetActivity = OBJ_TO_ACTIVITY[SETUP.objective] || "general";
-    const activityChips  = document.querySelectorAll("#activityChips .chip");
-    activityChips.forEach(chip => {
-        chip.classList.toggle("active", chip.dataset.val === targetActivity);
-    });
 }
 
 // เรียกหลัง DOM โหลดเสร็จ
 document.addEventListener("DOMContentLoaded", applySetupParams);
+
+// ============================================================
 // State
+// ============================================================
 let ws = null;
 let waitingReply = false;
 let streaming = false;
@@ -122,6 +111,7 @@ let videoFileEl = document.getElementById("videoFile");
 let recorder = null;
 let chunks = [];
 let currentVideoObjectURL = null;
+
 // Stats
 let txCount = 0, rxCount = 0;
 let txTs = Date.now(), rxTs = Date.now();
@@ -133,6 +123,7 @@ let lastSendMs = 0;
 let latestHumans = [];
 let latestFaces = [];
 let latestPoses = [];
+let trackedChildren = [];
 let srcW = 0, srcH = 0;
 let inferMs = 0;
 
@@ -154,7 +145,7 @@ function getIdColor(id) {
 }
 
 // ============================================================
-// FIX 3: สร้าง Set และ pre-compute ครั้งเดียว (ไม่สร้างใหม่ทุก call)
+// Pre-computed skeleton edges
 // ============================================================
 const LEFT_SET = new Set([1, 3, 5, 7, 9, 11, 13, 15]);
 const RIGHT_SET = new Set([2, 4, 6, 8, 10, 12, 14, 16]);
@@ -171,7 +162,6 @@ const SKELETON_EDGES = [
     [11, 13], [13, 15], [12, 14], [14, 16],
 ];
 
-// pre-compute สีของแต่ละ edge (อ่านจาก DRAW.skeletonColor + DRAW.alpha.skeletonEdge)
 function buildEdgeColorMap() {
     const a = DRAW.alpha.skeletonEdge;
     const c = DRAW.skeletonColor;
@@ -321,8 +311,7 @@ setInterval(() => {
 }, 1000);
 
 // ============================================================
-// FIX 1: setupHiDPI — เรียกครั้งเดียวตอน init และ resize เท่านั้น
-// ไม่เรียกซ้ำทุก frame อีกต่อไป
+// Canvas initialization
 // ============================================================
 let drawCtx = null;
 let drawW = 0;
@@ -340,7 +329,6 @@ function initCanvas() {
     drawCtx.scale(dpr, dpr);
 }
 
-// resize → reinit canvas แล้ว flag ว่า ready
 const ro = new ResizeObserver(() => initCanvas());
 ro.observe(overlay);
 
@@ -374,6 +362,14 @@ function connectWS() {
         wsLabel.textContent = "CONNECTED";
         waitingReply = false;
         addLog("system", "sys", "WebSocket connected");
+        
+        // ส่ง parameters ไปยัง server
+        const initMsg = JSON.stringify({
+            playMethod: SETUP.playMethod,
+            objective: SETUP.objective,
+            gameName: SETUP.gameName
+        });
+        ws.send(initMsg);
     };
 
     ws.onclose = () => {
@@ -386,12 +382,6 @@ function connectWS() {
     };
 
     ws.onerror = () => ws.close();
-
-   // ⏳ ประกาศตัวควบคุมเวลาไว้ด้านบน (หากมีตัวแปรกลุ่มนี้อยู่แล้วในไฟล์ ให้ข้ามบรรทัด 2-3 นี้ไปได้ครับ)
-    if (typeof lastChartRenderTime === "undefined") {
-        var lastChartRenderTime = 0;
-        var CHART_RENDER_INTERVAL_MS = 100; // 100ms = สั่งล็อกให้กราฟวาดตัวสูงสุดแค่ 10 ครั้ง/วินาที ไม่ให้ถี่เกินไปจนพัง
-    }
 
     ws.onmessage = (ev) => {
         clearTimeout(timeoutTimer);
@@ -413,8 +403,9 @@ function connectWS() {
         latestHumans = msg.humans || [];
         latestFaces = msg.faces || [];
         latestPoses = msg.poses || [];
+        trackedChildren = msg.tracked_children || [];
 
-        // update UI (เบาๆ ไม่ใช่ draw)
+        // update UI
         countHuman.textContent = latestHumans.length;
         countFace.textContent = latestFaces.length;
         countPose.textContent = latestPoses.length;
@@ -424,23 +415,13 @@ function connectWS() {
         for (const b of latestHumans) addLog("human", "HUMAN", `ID:${b.id ?? "?"} conf:${(b.conf * 100).toFixed(0)}%`);
         for (const b of latestFaces) addLog("face", "FACE", `conf:${(b.conf * 100).toFixed(0)}%`);
 
-        // ====================================================================
-        // 🛡️ ปลั๊กอินควบคุมความถี่ข้อมูลกราฟ (แก้ปัญหาพ่นข้อมูลเร็วเกินไปจนค้าง)
-        // ====================================================================
-        // ====================================================================
-        // 🛡️ ปลั๊กอินควบคุมความถี่ข้อมูลกราฟ และป้องกันกราฟดิ่งลงเหว (Data Hold)
-        // ====================================================================
-        
-        if (timeNow - lastChartRenderTime >= CHART_RENDER_INTERVAL_MS) {
-            
-           
-            // 💡 หมายเหตุ: ปล่อยให้ฟังก์ชันตรวจสอบการหลุดจากจอจริงๆ ทำงานผ่านการนับเวลาแทนการยัด 0 ทุกเฟรม
-        }
-            
-            lastChartRenderTime = timeNow; // บันทึกตราประทับเวลาล่าสุด
-        }
+        // Update chart data and scores
+        collectChartData();
+        updateScoreData();
+        if (currentPanel === "graph") drawCharts();
+        if (currentPanel === "score") renderScorePanel();
     };
-
+}
 
 // ============================================================
 // Send frame
@@ -449,7 +430,6 @@ const sendCanvas = document.createElement("canvas");
 const sendCtx = sendCanvas.getContext("2d");
 sendCtx.imageSmoothingEnabled = false;
 
-// Replace toBlob() callback with this synchronous path:
 function sendFrame() {
     if (!ws || ws.readyState !== 1 || waitingReply || !video.videoWidth) return;
 
@@ -461,7 +441,6 @@ function sendFrame() {
 
     sendCtx.drawImage(video, 0, 0, W, H);
 
-    // OffscreenCanvas path — no async callback, no extra delay
     sendCanvas.toBlob((blob) => {
         if (!blob || ws.readyState !== 1) return;
         lastSendMs = Date.now();
@@ -480,8 +459,7 @@ function loop() {
 }
 
 // ============================================================
-// FIX 2: Draw loop — ไม่เรียก setupHiDPI ซ้ำทุก frame
-// ใช้ drawCtx / drawW / drawH ที่ init ไว้แล้วโดยตรง
+// Draw loop
 // ============================================================
 function drawLoop() {
     function draw() {
@@ -557,8 +535,6 @@ function drawLoop() {
 // ============================================================
 // Draw helpers
 // ============================================================
-
-// drawHumanBox — อ่านทุกค่าจาก DRAW
 function drawHumanBox(ctx, x, y, w, h, color, id, conf) {
     const cx = x + w / 2;
     const cy = y + h / 2;
@@ -603,7 +579,6 @@ function drawHumanBox(ctx, x, y, w, h, color, id, conf) {
     ctx.restore();
 }
 
-// drawSkeleton — อ่านทุกค่าจาก DRAW
 function drawSkeleton(ctx, keypoints, scaleX, scaleY, canvasW) {
     const minConf = DRAW.kpConfMin;
     const pts = keypoints.map(kp => ({
@@ -692,7 +667,6 @@ function addLog(type, typeLabel, detail) {
     renderLog();
 }
 
-// FIX: ใช้ DocumentFragment แทน innerHTML ทุก frame
 function renderLog() {
     const frag = document.createDocumentFragment();
     for (const e of logEntries) {
@@ -715,6 +689,7 @@ window.addEventListener("load", async () => {
     loop();
     drawLoop();
 });
+
 // ============================================================
 // HAMBURGER DRAWER SYSTEM
 // ============================================================
@@ -734,7 +709,7 @@ const panelScore    = document.getElementById("panelScore");
 const panelSettings = document.getElementById("panelSettings");
 
 let drawerOpen = false;
-let currentPanel = null; // null = main menu
+let currentPanel = null;
 
 function openDrawer() {
     drawerOpen = true;
@@ -801,7 +776,6 @@ document.querySelectorAll(".menu-item").forEach(btn => {
     btn.addEventListener("click", () => showPanel(btn.dataset.panel));
 });
 
-// Keyboard ESC
 document.addEventListener("keydown", e => {
     if (e.key === "Escape") {
         if (currentPanel) showMainMenu();
@@ -809,7 +783,6 @@ document.addEventListener("keydown", e => {
     }
 });
 
-// ---- Sync WS status into drawer ----
 function syncDrawerWsStatus() {
     if (!drawerWsStatus) return;
     const connected = wsDot.classList.contains("on");
@@ -830,49 +803,24 @@ document.querySelectorAll(".setting-chips").forEach(group => {
     });
 });
 
-// Sliders
-const sensitivitySlider = document.getElementById("sensitivitySlider");
-const sensitivityVal    = document.getElementById("sensitivityVal");
-const frameSlider       = document.getElementById("frameSlider");
-const frameVal          = document.getElementById("frameVal");
-
-sensitivitySlider && sensitivitySlider.addEventListener("input", () => {
-    sensitivityVal.textContent = sensitivitySlider.value;
-});
-frameSlider && frameSlider.addEventListener("input", () => {
-    frameVal.textContent = frameSlider.value;
-});
-
 // ============================================================
 // SCORE PANEL
 // ============================================================
-const scoreData = {};   // id → { color, frames, totalMotion }
+const scoreData = {};   // track_id → { color, scores }
 
-// Hook into existing human data processing
 function updateScoreData() {
-    for (const b of latestHumans) {
-        const id = b.id ?? "?";
+    for (const child of trackedChildren) {
+        const id = child.track_id ?? "?";
         if (!scoreData[id]) {
             scoreData[id] = {
-                color: getIdColor(b.id),
-                frames: 0,
-                totalMotion: 0,
-                score: 0,
+                color: getIdColor(child.track_id),
+                name: child.name,
+                scores: { attention: 0, fine_motor: 0, gross_motor: 0 }
             };
         }
-        scoreData[id].frames++;
-        // Simple score heuristic: frames detected × conf
-        scoreData[id].score = Math.min(100, (scoreData[id].frames * b.conf * 0.4).toFixed(1));
-    }
-    // Incorporate pose keypoint activity
-    for (const p of latestPoses) {
-        const id = p.id ?? "?";
-        if (!scoreData[id]) return;
-        if (p.keypoints) {
-            const active = p.keypoints.filter(kp => (kp.conf ?? 0) >= DRAW.kpConfMin).length;
-            scoreData[id].totalMotion += active;
-            scoreData[id].score = Math.min(100,
-                (scoreData[id].frames * 0.3 + scoreData[id].totalMotion * 0.1).toFixed(1));
+        // Update scores from server
+        if (child.scores) {
+            scoreData[id].scores = child.scores;
         }
     }
 }
@@ -887,31 +835,46 @@ function renderScorePanel() {
     }
     list.innerHTML = ids.map(id => {
         const d = scoreData[id];
-        const pct = Math.min(100, parseFloat(d.score));
+        const scores = d.scores;
+        const avgScore = Math.round(
+            (scores.attention + scores.fine_motor + scores.gross_motor) / 3
+        );
         return `
         <div class="score-card">
           <div class="score-card-header">
             <span class="score-id-dot" style="background:${d.color}"></span>
-            <span class="score-id-label">Person ${id}</span>
-            <span class="score-badge">${pct} pt</span>
+            <span class="score-id-label">${d.name}</span>
+            <span class="score-badge">${avgScore} pt</span>
+          </div>
+          <div class="score-breakdown">
+            <div class="score-row">
+              <span>สมาธิ</span>
+              <span>${scores.attention}</span>
+            </div>
+            <div class="score-row">
+              <span>กล้ามเนื้อมัดเล็ก</span>
+              <span>${scores.fine_motor}</span>
+            </div>
+            <div class="score-row">
+              <span>กล้ามเนื้อมัดใหญ่</span>
+              <span>${scores.gross_motor}</span>
+            </div>
           </div>
           <div class="score-bar-wrap">
-            <div class="score-bar-fill" style="width:${pct}%;background:${d.color}"></div>
+            <div class="score-bar-fill" style="width:${avgScore}%;background:${d.color}"></div>
           </div>
         </div>`;
     }).join("");
 }
 
 // ============================================================
-// GRAPH PANEL — mini canvas line charts
+// GRAPH PANEL
 // ============================================================
 const CHART_LEN = 60;
 
-// Speed of center-dot crossing diagonal (px/frame proxy)
 const speedHistory = new Array(CHART_LEN).fill(0);
 let lastCenterX = null, lastCenterY = null;
 
-// Keypoint y-position histories (head=0, left-wrist=9, right-wrist=10, spine mid)
 const kpHistory = {
     head:  new Array(CHART_LEN).fill(null),
     armL:  new Array(CHART_LEN).fill(null),
@@ -927,7 +890,6 @@ function pushVal(arr, val) {
 }
 
 function collectChartData() {
-    // Speed: distance of first human center-dot
     if (latestHumans.length > 0) {
         const h = latestHumans[0];
         const cx = h.x + h.w / 2;
@@ -941,13 +903,12 @@ function collectChartData() {
         pushVal(speedHistory, 0);
     }
 
-    // Keypoints: first pose
     if (latestPoses.length > 0 && latestPoses[0].keypoints) {
         const kp = latestPoses[0].keypoints;
         const get = (i) => (kp[i] && (kp[i].conf ?? 0) >= DRAW.kpConfMin) ? kp[i].y : null;
         pushVal(kpHistory.head,  get(0));
-        pushVal(kpHistory.armL,  get(9));   // left wrist
-        pushVal(kpHistory.armR,  get(10));  // right wrist
+        pushVal(kpHistory.armL,  get(9));
+        pushVal(kpHistory.armR,  get(10));
         pushVal(kpHistory.torso, (get(5) !== null && get(11) !== null) ? (kp[5].y + kp[11].y) / 2 : null);
     } else {
         Object.values(kpHistory).forEach(arr => pushVal(arr, null));
@@ -999,11 +960,9 @@ function drawLineChart(canvas, series, opts = {}) {
     ctx.setTransform(1,0,0,1,0,0);
     ctx.scale(dpr, dpr);
 
-    // Background
     ctx.fillStyle = opts.bg || "rgba(242,239,233,0.6)";
     ctx.fillRect(0, 0, W, H);
 
-    // Grid lines
     ctx.strokeStyle = opts.gridColor || "rgba(0,0,0,0.06)";
     ctx.lineWidth = 0.5;
     for (let i = 1; i < 4; i++) {
@@ -1014,14 +973,12 @@ function drawLineChart(canvas, series, opts = {}) {
     const padT = 4, padB = 4;
     const plotH = H - padT - padB;
 
-    // Find global min/max across all series
     let allVals = [];
     series.forEach(s => s.data.forEach(v => { if (v !== null) allVals.push(v); }));
     let minV = allVals.length ? Math.min(...allVals) : 0;
     let maxV = allVals.length ? Math.max(...allVals) : 1;
     if (maxV === minV) { maxV = minV + 1; }
 
-    // Draw each series
     series.forEach(s => {
         const len = s.data.length;
         if (len < 2) return;
@@ -1046,4 +1003,30 @@ function drawLineChart(canvas, series, opts = {}) {
         }
         ctx.stroke();
     });
+}
+
+// ============================================================
+// Dashboard Export
+// ============================================================
+const goDashboardBtn = document.getElementById("goDashboardBtn");
+
+function exportToDashboard() {
+    // Prepare data with colors
+    const dataForExport = trackedChildren.map(child => ({
+        ...child,
+        color: idColors[child.track_id] || COLOR_PALETTE[0]
+    }));
+
+    // Save to sessionStorage
+    sessionStorage.setItem('sessionScores', JSON.stringify(dataForExport));
+    sessionStorage.setItem('playMethod', SETUP.playMethod);
+    sessionStorage.setItem('objective', SETUP.objective);
+    sessionStorage.setItem('gameName', SETUP.gameName);
+
+    // Navigate to Dashboard
+    window.location.href = 'Dashboard.html';
+}
+
+if (goDashboardBtn) {
+    goDashboardBtn.addEventListener('click', exportToDashboard);
 }

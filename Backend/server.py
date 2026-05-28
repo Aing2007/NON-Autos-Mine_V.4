@@ -1,7 +1,9 @@
 import json
 import time
 import asyncio
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+import math
 
 import cv2
 import numpy as np
@@ -50,9 +52,59 @@ CONF = {
 
 executor = ThreadPoolExecutor(max_workers=3)
 
+# ======================================================
+# Keypoint Indices (COCO 17-point format)
+# ======================================================
+KEYPOINT_IDX = {
+    "nose": 0,
+    "left_eye": 1, "right_eye": 2,
+    "left_ear": 3, "right_ear": 4,
+    "left_shoulder": 5, "right_shoulder": 6,
+    "left_elbow": 7, "right_elbow": 8,
+    "left_wrist": 9, "right_wrist": 10,
+    "left_hip": 11, "right_hip": 12,
+    "left_knee": 13, "right_knee": 14,
+    "left_ankle": 15, "right_ankle": 16,
+}
+
+# Joints for angle calculation (parent-child-grandchild)
+ANGLE_CHAINS = {
+    "fine_motor": [
+        (5, 7, 9),   # left shoulder-elbow-wrist
+        (6, 8, 10),  # right shoulder-elbow-wrist
+    ],
+    "gross_motor": [
+        (5, 11, 13),  # left shoulder-hip-knee
+        (6, 12, 14),  # right shoulder-hip-knee
+        (11, 13, 15), # left hip-knee-ankle
+        (12, 14, 16), # right hip-knee-ankle
+    ]
+}
 
 # ======================================================
-# Helper Functions สำหรับวิเคราะห์จับคู่พิกัด (Spatial Math)
+# Scoring Config
+# ======================================================
+SCORE_CONFIG = {
+    "attention": {
+        "window_sec": 3,
+        "speed_thresholds": [
+            {"min": 0,   "max": 5,   "score": 100},
+            {"min": 5,   "max": 20,  "score": 80},
+            {"min": 20,  "max": 999, "score": 50},
+        ]
+    },
+    "fine_motor": {
+        "keypoints": [5, 6, 7, 8, 9, 10],
+        "min_confidence": 0.4,
+    },
+    "gross_motor": {
+        "keypoints": [11, 12, 13, 14, 15, 16],
+        "min_confidence": 0.4,
+    }
+}
+
+# ======================================================
+# Helper Functions
 # ======================================================
 def is_center_inside(center: tuple, box: dict) -> bool:
     """ตรวจสอบว่าจุดศูนย์กลาง (ของใบหน้า) ตกอยู่ในกล่อง (ของร่างกาย) หรือไม่"""
@@ -61,7 +113,7 @@ def is_center_inside(center: tuple, box: dict) -> bool:
     return (bx <= cx <= bx + bw) and (by <= cy <= by + bh)
 
 def compute_iou(box1: dict, box2: dict) -> float:
-    """คำนวณการทับซ้อน (Intersection over Union) เพื่อจับคู่กล่องที่ใกล้เคียงกันที่สุด"""
+    """คำนวณการทับซ้อน (Intersection over Union)"""
     x1 = max(box1["x"], box2["x"])
     y1 = max(box1["y"], box2["y"])
     x2 = min(box1["x"] + box1["w"], box2["x"] + box2["w"])
@@ -79,6 +131,37 @@ def compute_iou(box1: dict, box2: dict) -> float:
         return 0.0
     return inter_area / union_area
 
+def calculate_angle(kp_a, kp_b, kp_c):
+    """
+    คำนวณมุมระหว่าง 3 keypoints (A-B-C) ที่ B เป็นจุดยอด
+    Returns: angle in degrees (0-180) or None if any point is invalid
+    """
+    if kp_a is None or kp_b is None or kp_c is None:
+        return None
+    if kp_a["conf"] < SCORE_CONFIG["fine_motor"]["min_confidence"] or \
+       kp_b["conf"] < SCORE_CONFIG["fine_motor"]["min_confidence"] or \
+       kp_c["conf"] < SCORE_CONFIG["fine_motor"]["min_confidence"]:
+        return None
+    
+    # Vector BA and BC
+    ba = np.array([kp_a["x"] - kp_b["x"], kp_a["y"] - kp_b["y"]])
+    bc = np.array([kp_c["x"] - kp_b["x"], kp_c["y"] - kp_b["y"]])
+    
+    # Magnitude
+    mag_ba = np.linalg.norm(ba)
+    mag_bc = np.linalg.norm(bc)
+    
+    if mag_ba < 1e-6 or mag_bc < 1e-6:
+        return None
+    
+    # Cosine similarity
+    cos_angle = np.dot(ba, bc) / (mag_ba * mag_bc)
+    cos_angle = np.clip(cos_angle, -1.0, 1.0)
+    
+    angle_rad = np.arccos(cos_angle)
+    angle_deg = np.degrees(angle_rad)
+    
+    return angle_deg
 
 # ======================================================
 # Model inference functions
@@ -126,8 +209,6 @@ def infer_face(frame: np.ndarray) -> list:
             if conf < CONF["face"]:
                 continue
             x1, y1, x2, y2 = box.xyxy[0].tolist()
-            
-            # ดึงชื่อเด็กจากคลาสที่โมเดลตรวจจับได้จริง (ดึงจากเดตาเซ็ตที่เทรนไว้)
             cls_id = int(box.cls[0])
             child_name = model_face.names.get(cls_id, f"Face_{cls_id}")
             
@@ -136,7 +217,7 @@ def infer_face(frame: np.ndarray) -> list:
                 "w": float(x2 - x1), "h": float(y2 - y1),
                 "conf": round(conf, 3),
                 "id": None,
-                "label": child_name, # เปลี่ยนจาก "face" เป็นชื่อเด็กจริง
+                "label": child_name,
                 "type": "face"
             })
     return boxes
@@ -191,8 +272,138 @@ async def root():
 
 
 # ======================================================
+# Scoring Engine
+# ======================================================
+class ScoringEngine:
+    def __init__(self):
+        # Historical data per track_id: {track_id: [(timestamp, center_x, center_y, keypoints), ...]}
+        self.speed_history = defaultdict(list)
+        self.angle_history = defaultdict(list)
+        self.last_score_time = defaultdict(float)
+        self.current_scores = defaultdict(lambda: {"attention": 100, "fine_motor": 0, "gross_motor": 0})
+    def compute_attention_score(self, center_x, center_y, track_id, current_time):
+        """
+        วัดอัตราเร็วของจุดศูนย์กลาง
+        ถ้า 3 วิที่ผ่านมา มีความเร็วน้อย -> คะแนนสูง
+        """
+        self.speed_history[track_id].append({
+            "time": current_time,
+            "x": center_x,
+            "y": center_y
+        })
+        
+        # ลบข้อมูลเก่าเกิน 3 วิ
+        cutoff_time = current_time - SCORE_CONFIG["attention"]["window_sec"]
+        self.speed_history[track_id] = [
+            h for h in self.speed_history[track_id] 
+            if h["time"] >= cutoff_time
+        ]
+        
+        # หากมีข้อมูลไม่ถึง 2 จุด ยังไม่สามารถคำนวณได้
+        if len(self.speed_history[track_id]) < 2:
+            return None
+        
+        # คำนวณระยะห่างทั้งหมด ใน 3 วิ
+        total_distance = 0
+        for i in range(1, len(self.speed_history[track_id])):
+            prev = self.speed_history[track_id][i-1]
+            curr = self.speed_history[track_id][i]
+            dist = math.sqrt(
+                (curr["x"] - prev["x"])**2 + 
+                (curr["y"] - prev["y"])**2
+            )
+            total_distance += dist
+        
+        # Thresholding
+        score = 50  # default lowest
+        for threshold in SCORE_CONFIG["attention"]["speed_thresholds"]:
+            if threshold["min"] <= total_distance < threshold["max"]:
+                score = threshold["score"]
+                break
+        
+        return score
+    
+    def compute_motor_skill_score(self, keypoints, track_id, current_time, motor_type):
+        """
+        วัดอัตราการขยับข้อต่อ โดยดูความเปลี่ยนแปลงของมุม
+        motor_type: "fine_motor" หรือ "gross_motor"
+        """
+        if not keypoints or len(keypoints) < 17:
+            return None
+        
+        # บันทึกข้อมูล
+        self.angle_history[track_id].append({
+            "time": current_time,
+            "keypoints": keypoints,
+            "motor_type": motor_type
+        })
+        
+        # ลบข้อมูลเก่าเกิน 3 วิ
+        cutoff_time = current_time - SCORE_CONFIG["attention"]["window_sec"]
+        self.angle_history[track_id] = [
+            h for h in self.angle_history[track_id] 
+            if h["time"] >= cutoff_time
+        ]
+        
+        # ต้องมีข้อมูลอย่างน้อย 2 frame
+        history_for_type = [
+            h for h in self.angle_history[track_id]
+            if h["motor_type"] == motor_type
+        ]
+        if len(history_for_type) < 2:
+            return None
+        
+        # คำนวณความเปลี่ยนแปลงของมุมในแต่ละ joint
+        angle_changes = []
+        
+        for chain in ANGLE_CHAINS[motor_type]:
+            idx_a, idx_b, idx_c = chain
+            
+            # หา angle ในแต่ละ frame
+            angles = []
+            for hist in history_for_type:
+                kp = hist["keypoints"]
+                angle = calculate_angle(kp[idx_a], kp[idx_b], kp[idx_c])
+                if angle is not None:
+                    angles.append(angle)
+            
+            # คำนวณเฉลี่ยของการเปลี่ยนแปลง
+            if len(angles) > 1:
+                for i in range(1, len(angles)):
+                    change = abs(angles[i] - angles[i-1])
+                    angle_changes.append(change)
+        
+        # ถ้าไม่มี angle change ให้คะแนน 0
+        if not angle_changes:
+            return 0
+        
+        # คำนวณเฉลี่ยการเปลี่ยนแปลง (degree per frame)
+        avg_change = sum(angle_changes) / len(angle_changes)
+        
+        # Scaling: 0 degree → 0 point, 30+ degree → 100 point
+        score = min(100, int((avg_change / 30.0) * 100))
+        
+        return score
+    
+    def should_update_score(self, track_id, current_time):
+        """ตรวจสอบว่าควร update score ทุก 3 วิหรือไม่"""
+        if track_id not in self.last_score_time:
+            self.last_score_time[track_id] = current_time
+            return True
+        
+        elapsed = current_time - self.last_score_time[track_id]
+        if elapsed >= SCORE_CONFIG["attention"]["window_sec"]:
+            self.last_score_time[track_id] = current_time
+            return True
+        
+        return False
+
+
+# ======================================================
 # WebSocket Endpoint
 # ======================================================
+scoring_engine = ScoringEngine()
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     client = websocket.client
@@ -201,12 +412,18 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     print(f"\n🟢 [CONNECTED]  Client: {client_info}")
 
-    # 💾 ระบบจดจำอัตลักษณ์จำลอง (Track Memory Session)
-    # ช่วยให้จำได้ว่า Track ID นี้คือใคร แม้เด็กจะหันหลังชั่วขณะแล้วสแกนหน้าไม่เจอก็ตาม
-    track_to_child_memory = {}
+    # Receive parameters from client
+    init_msg = await websocket.receive_text()
+    params = json.loads(init_msg) if init_msg else {}
+    play_method = params.get("playMethod", "standing")  # sitting or standing
+    objective = params.get("objective", "attention")      # attention, fine_motor, gross_motor
+    game_name = params.get("gameName", "Unknown")
 
-    frame_count  = 0
-    start_time   = time.time()
+    print(f"  📋 PlayMethod: {play_method} | Objective: {objective} | Game: {game_name}")
+
+    track_to_child_memory = {}
+    frame_count = 0
+    start_time = time.time()
     last_log_time = start_time
     loop = asyncio.get_event_loop()
 
@@ -216,7 +433,7 @@ async def websocket_endpoint(websocket: WebSocket):
             frame_count += 1
 
             np_arr = np.frombuffer(data, np.uint8)
-            frame  = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
             if frame is None:
                 print(f"  ⚠️  Frame {frame_count}: decode failed")
@@ -224,60 +441,96 @@ async def websocket_endpoint(websocket: WebSocket):
 
             h, w = frame.shape[:2]
             t0 = time.perf_counter()
+            current_time = time.time()
 
             # ดึงข้อมูลจาก 3 โมเดลแบบขนาน
             boxes_human, boxes_face, boxes_pose = await asyncio.gather(
                 loop.run_in_executor(executor, infer_human, frame),
-                loop.run_in_executor(executor, infer_face,  frame),
-                loop.run_in_executor(executor, infer_pose,  frame),
+                loop.run_in_executor(executor, infer_face, frame),
+                loop.run_in_executor(executor, infer_pose, frame),
             )
 
             # ==================================================
-            # 🧠 ALGORITHM: ขบวนการผูกข้อมูลพิกัดซ้อนทับ (Data Binding)
+            # Binding Phase
             # ==================================================
             
-            # ขั้นตอนที่ 1: ตรวจสอบพิกัดใบหน้าว่าอยู่ในการตีกรอบของโครงร่างมนุษย์คนไหน
+            # ขั้นตอนที่ 1: ผูกชื่อเด็กกับ Track ID
             for face in boxes_face:
                 face_center = (face["x"] + face["w"]/2, face["y"] + face["h"]/2)
                 for human in boxes_human:
                     if human["id"] is not None and is_center_inside(face_center, human):
-                        # ผูกชื่อเด็กตัวจริงเข้ากับระบบจดจำ Track ID ของกล้อง
                         track_to_child_memory[human["id"]] = face["label"]
                         break
 
-            # ขั้นตอนที่ 2: จับคู่โครงกระดูก (Pose) เข้ากับโครงร่างมนุษย์โดยใช้ค่า IoU พื้นที่ทับซ้อน
+            # ขั้นตอนที่ 2: จับคู่โครงกระดูกกับร่างกาย
             pose_to_track_map = {}
             for pose in boxes_pose:
                 best_iou = 0.0
                 matched_track_id = None
                 for human in boxes_human:
                     iou = compute_iou(pose, human)
-                    if iou > best_iou and iou > 0.4:  # ต้องมีพื้นที่ซ้อนทับกันเกิน 40%
+                    if iou > best_iou and iou > 0.4:
                         best_iou = iou
                         matched_track_id = human["id"]
                 if matched_track_id is not None:
                     pose_to_track_map[id(pose)] = matched_track_id
 
-            # ขั้นตอนที่ 3: จัดกลุ่มข้อมูลแบบเบ็ดเสร็จรายบุคคล (Structured Output)
+            # ขั้นตอนที่ 3: สร้างข้อมูลรายบุคคลแบบเต็ม + คำนวณคะแนน
             tracked_children = []
+            
             for human in boxes_human:
                 tid = human["id"]
                 if tid is None:
                     continue
 
-                # ค้นหาชื่อเด็กจากความจำ หากเฟรมนี้มองไม่เห็นหน้า จะดึงค่าเก่าในอดีตมาใช้แทนทันที
                 child_name = track_to_child_memory.get(tid, f"Unknown_ID_{tid}")
+                center_x = human["x"] + (human["w"] / 2)
+                center_y = human["y"] + (human["h"] / 2)
 
-                # ค้นหาจุด Keypoints ข้อต่อที่ถูกผูกไว้กับมนุษย์คนนี้
+                # หา keypoints ที่ผูกไว้
                 associated_kps = []
                 for pose in boxes_pose:
                     if pose_to_track_map.get(id(pose)) == tid:
                         associated_kps = pose["keypoints"]
                         break
 
-                # คำนวณจุดตัดเส้นทแยงมุม (จุดกึ่งกลางลำตัวจริง 100%)
-                center_x = human["x"] + (human["w"] / 2)
-                center_y = human["y"] + (human["h"] / 2)
+                # ==================================================
+                # 🎯 คำนวณคะแนนตามแต่ละประเภท
+                # ==================================================
+                scores = {}
+                
+                # ==================================================
+                # 🎯 [แก้ไขบั๊ก]: คำนวณคะแนนตามแต่ละประเภท (ประคองค่าคะแนนล่าสุด)
+                # ==================================================
+                
+                # ตรวจสอบว่าครบรอบ 3 วินาทีที่ต้องประมวลผลหรือไม่
+                if scoring_engine.should_update_score(tid, current_time):
+                    
+                    # 1. คำนวณ Attention Score
+                    att_score = scoring_engine.compute_attention_score(center_x, center_y, tid, current_time)
+                    if att_score is not None:
+                        scoring_engine.current_scores[tid]["attention"] = att_score
+                    
+                    # 2. คำนวณ Fine Motor Score
+                    fm_score = scoring_engine.compute_motor_skill_score(associated_kps, tid, current_time, "fine_motor")
+                    if fm_score is not None:
+                        scoring_engine.current_scores[tid]["fine_motor"] = fm_score
+                    
+                    # 3. คำนวณ Gross Motor Score
+                    gm_score = scoring_engine.compute_motor_skill_score(associated_kps, tid, current_time, "gross_motor")
+                    if gm_score is not None:
+                        scoring_engine.current_scores[tid]["gross_motor"] = gm_score
+
+                # ดึงค่าคะแนนล่าสุดที่มีการบันทึกไว้ส่งออกไป (ไม่เป็น 0 ในเฟรมย่อยอีกต่อไป)
+                scores = scoring_engine.current_scores[tid]
+
+                # Filter display based on play_method
+                display_human = True
+                display_pose_lower = True
+                
+                if play_method == "sitting":
+                    # สำหรับ sitting ไม่ต้องแสดง lower body keypoints
+                    display_pose_lower = False
 
                 tracked_children.append({
                     "name": child_name,
@@ -288,12 +541,12 @@ async def websocket_endpoint(websocket: WebSocket):
                         "w": round(human["w"], 1),
                         "h": round(human["h"], 1)
                     },
-                    "center": [round(center_x, 1), round(center_y, 1)],  # จุดตัดเส้นทแยงมุมตามโจทย์
+                    "center": [round(center_x, 1), round(center_y, 1)],
                     "keypoints": associated_kps,
-                    "conf": human["conf"]
+                    "conf": human["conf"],
+                    "scores": scores,
+                    "display_lower_body": display_pose_lower
                 })
-
-            # ==================================================
 
             inference_ms = (time.perf_counter() - t0) * 1000
 
@@ -304,21 +557,27 @@ async def websocket_endpoint(websocket: WebSocket):
                 print(
                     f"  📦 Frame:{frame_count:>5} | FPS:{fps:>5.1f} | "
                     f"Infer:{inference_ms:>5.1f}ms | "
-                    f"🧒 จับคู่สำเร็จแล้ว: {len(tracked_children)} คน"
+                    f"🧒 Tracked: {len(tracked_children)} children"
                 )
                 last_log_time = now
 
+            # ==================================================
+            # Response
+            # ==================================================
             response = {
                 "w": w, "h": h,
                 "inference_ms": round(inference_ms, 1),
                 "conf_used": CONF,
-                "humans":     boxes_human,
-                "faces":      boxes_face,
-                "poses":      boxes_pose,
+                "humans": boxes_human,
+                "faces": boxes_face,
+                "poses": boxes_pose,
                 "detections": boxes_human + boxes_face + boxes_pose,
-                
-                # 🔥 ส่งชุดข้อมูลที่ผูกเสร็จแล้วไปให้หน้าเว็บประเมินต่อได้สบายๆ
-                "tracked_children": tracked_children 
+                "tracked_children": tracked_children,
+                "params": {
+                    "playMethod": play_method,
+                    "objective": objective,
+                    "gameName": game_name
+                }
             }
 
             await websocket.send_text(json.dumps(response))

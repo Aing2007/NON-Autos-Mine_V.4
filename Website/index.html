@@ -141,44 +141,43 @@
             </div>
 
             <!-- ===== PANEL: SETTINGS ===== -->
-<div class="drawer-body drawer-panel" id="panelSettings">
-    <p class="drawer-subtitle">พารามิเตอร์การวิเคราะห์</p>
+            <div class="drawer-body drawer-panel" id="panelSettings">
+                <p class="drawer-subtitle">พารามิเตอร์การวิเคราะห์</p>
 
-    <!-- ค่าที่รับมาจาก setup.html -->
-    <div class="setting-group">
-        <label class="setting-label">ข้อมูลจากการตั้งค่า</label>
-        <div class="setup-info-block">
-            <div class="setup-info-row">
-                <span class="setup-info-k">วิธีเล่น</span>
-                <span class="setup-info-v" id="infoPlayMethod">—</span>
-            </div>
-            <div class="setup-info-row">
-                <span class="setup-info-k">วัตถุประสงค์</span>
-                <span class="setup-info-v" id="infoObjective">—</span>
-            </div>
-            <div class="setup-info-row">
-                <span class="setup-info-k">ชื่อเกม</span>
-                <span class="setup-info-v" id="infoGameName">—</span>
-            </div>
-        </div>
-    </div>
+                <!-- ค่าที่รับมาจาก setup.html -->
+                <div class="setting-group">
+                    <label class="setting-label">ข้อมูลจากการตั้งค่า</label>
+                    <div class="setup-info-block">
+                        <div class="setup-info-row">
+                            <span class="setup-info-k">วิธีเล่น</span>
+                            <span class="setup-info-v" id="infoPlayMethod">—</span>
+                        </div>
+                        <div class="setup-info-row">
+                            <span class="setup-info-k">วัตถุประสงค์</span>
+                            <span class="setup-info-v" id="infoObjective">—</span>
+                        </div>
+                        <div class="setup-info-row">
+                            <span class="setup-info-k">ชื่อเกม</span>
+                            <span class="setup-info-v" id="infoGameName">—</span>
+                        </div>
+                    </div>
+                </div>
 
-    <div class="drawer-divider"></div>
+                <div class="drawer-divider"></div>
+            </div>
         </nav>
 
         <!-- ===== CAMERA ===== -->
-         <div style="position:absolute;top:200px;left:10px;z-index:50;background:rgba(255, 255, 255, 0.533);padding:10px;border-radius:6px">
-    
-    <label>
-        <input type="radio" name="mode" value="camera" checked> กล้อง
-    </label>
-    
-    <label>
-        <input type="radio" name="mode" value="video"> วิดีโอ
-    </label>
+        <div style="position:absolute;top:200px;left:10px;z-index:50;background:rgba(255, 255, 255, 0.533);padding:10px;border-radius:6px">
+            <label>
+                <input type="radio" name="mode" value="camera" checked> กล้อง
+            </label>
+            <label>
+                <input type="radio" name="mode" value="video"> วิดีโอ
+            </label>
+            <input type="file" id="videoFile" accept="video/mp4" style="display:none" />
+        </div>
 
-    <input type="file" id="videoFile" accept="video/mp4" style="display:none" />
-</div>
         <main class="camera-area">
             <!-- Live feed -->
             <video id="video" autoplay playsinline muted></video>
@@ -191,8 +190,6 @@
                 <div class="cam-offline-icon">📷</div>
                 <div class="cam-offline-text">กรุณาอนุญาตการใช้กล้อง</div>
             </div>
-
-            
 
             <!-- Inference time badge (bottom-left) -->
             <div class="infer-badge" id="inferBadge">
@@ -258,6 +255,9 @@
                         <span class="log-detail">รอการเชื่อมต่อ…</span>
                     </div>
                 </div>
+                <button id="goDashboardBtn" style="border-radius: 10px; font-color: white; background-color: #007bff; border: none; padding: 10px 20px; cursor: pointer; margin-top: auto; width: 100%;">
+                    <span style="color: white; text-decoration: none;">📊 ไปยังหน้าสรุปผล</span>
+                </button>
             </div>
 
         </aside>
