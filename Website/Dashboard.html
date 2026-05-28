@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="th">
+<head>
+    <meta charset="utf-8" />
+    <title>NON | คะแนนสรุปผล</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #00e5ff;
+            --accent-pink: #ff4081;
+            --accent-green: #69ff47;
+            --dark-bg: #0a0e27;
+            --card-bg: #111a2a;
+            --border-color: rgba(0, 229, 255, 0.1);
+            --text-primary: #f0f4f8;
+            --text-secondary: #a8b5c4;
+            --success: #69ff47;
+            --warning: #ffab00;
+            --danger: #ff6b6b;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--dark-bg) 0%, #0f1729 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(90deg, rgba(0, 229, 255, 0.05), transparent);
+            border-bottom: 1px solid var(--border-color);
+            padding: 2rem 1.5rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, var(--primary), var(--accent-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-meta {
+            display: flex;
+            gap: 2rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            flex-wrap: wrap;
+        }
+
+        .meta-item {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .meta-label {
+            opacity: 0.7;
+        }
+
+        .meta-value {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 3rem 1.5rem;
+        }
+
+        /* Summary Section */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+
+        .summary-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            position: relative;
+            overflow: hidden;
+            animation: slideUp 0.6s ease-out forwards;
+            animation-delay: 0s;
+        }
+
+        .summary-card:nth-child(2) {
+            animation-delay: 0.1s;
+        }
+
+        .summary-card:nth-child(3) {
+            animation-delay: 0.2s;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .summary-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--accent-green));
+        }
+
+        .summary-card h3 {
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .summary-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .summary-subtitle {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* Scores Section */
+        .scores-section {
+            margin-bottom: 4rem;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(180deg, var(--primary), var(--accent-green));
+            border-radius: 2px;
+        }
+
+        .score-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .score-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2rem;
+            animation: slideUp 0.6s ease-out forwards;
+        }
+
+        .score-card:nth-child(1) {
+            animation-delay: 0.2s;
+        }
+
+        .score-card:nth-child(2) {
+            animation-delay: 0.3s;
+        }
+
+        .score-card:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        .score-card-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .score-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.2rem;
+            background: var(--primary);
+            color: var(--dark-bg);
+        }
+
+        .score-card-title {
+            flex: 1;
+        }
+
+        .score-card-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .score-card-id {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .score-main {
+            font-size: 2.2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--accent-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1.5rem;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .score-breakdown {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .breakdown-item {
+            background: rgba(0, 229, 255, 0.05);
+            border-left: 3px solid var(--primary);
+            padding: 1rem;
+            border-radius: 8px;
+            animation: fadeIn 0.8s ease-out forwards;
+        }
+
+        .breakdown-item:nth-child(1) {
+            animation-delay: 0.3s;
+            border-left-color: var(--primary);
+        }
+
+        .breakdown-item:nth-child(2) {
+            animation-delay: 0.4s;
+            border-left-color: var(--accent-pink);
+            background: rgba(255, 64, 129, 0.05);
+        }
+
+        .breakdown-item:nth-child(3) {
+            animation-delay: 0.5s;
+            border-left-color: var(--accent-green);
+            background: rgba(105, 255, 71, 0.05);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .breakdown-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .breakdown-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--primary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .breakdown-label-right {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .breakdown-bar {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .breakdown-fill {
+            height: 100%;
+            border-radius: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--accent-green));
+            animation: fillBar 1s ease-out forwards;
+            animation-delay: 0.6s;
+        }
+
+        @keyframes fillBar {
+            from {
+                width: 0;
+            }
+        }
+
+        /* Summary Stats */
+        .summary-stats {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-title {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Export Section */
+        .export-section {
+            margin-top: 4rem;
+            padding-top: 3rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.85rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--accent-green));
+            color: var(--dark-bg);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 229, 255, 0.3);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(0, 229, 255, 0.1);
+        }
+
+        .btn-danger {
+            background: transparent;
+            border: 2px solid var(--danger);
+            color: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: rgba(255, 107, 107, 0.1);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+        }
+
+        .empty-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .empty-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .empty-desc {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 2rem 1rem;
+            }
+
+            .header {
+                padding: 1.5rem 1rem;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .header-meta {
+                gap: 1rem;
+                font-size: 0.85rem;
+            }
+
+            .summary-value {
+                font-size: 2rem;
+            }
+
+            .score-main {
+                font-size: 1.8rem;
+            }
+
+            .summary-grid,
+            .score-cards-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Loading animation */
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .loading {
+            animation: pulse 2s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1>📊 คะแนนสรุปผล</h1>
+            <div class="header-meta">
+                <div class="meta-item">
+                    <span class="meta-label">เกม:</span>
+                    <span class="meta-value" id="gameName">—</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">วิธีการเล่น:</span>
+                    <span class="meta-value" id="playMethod">—</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">จุดประสงค์:</span>
+                    <span class="meta-value" id="objective">—</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">เวลา:</span>
+                    <span class="meta-value" id="timestamp">—</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Summary Stats -->
+        <div class="summary-stats">
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-icon">👥</div>
+                    <div class="stat-title">จำนวนผู้เข้าร่วม</div>
+                    <div class="stat-value" id="totalParticipants">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon">🏆</div>
+                    <div class="stat-title">คะแนนเฉลี่ย</div>
+                    <div class="stat-value" id="averageScore">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon">⭐</div>
+                    <div class="stat-title">คะแนนสูงสุด</div>
+                    <div class="stat-value" id="maxScore">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon">📈</div>
+                    <div class="stat-title">คะแนนต่ำสุด</div>
+                    <div class="stat-value" id="minScore">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scores Section -->
+        <div class="scores-section">
+            <h2 class="section-title">ผลการประเมินรายบุคคล</h2>
+            <div class="score-cards-grid" id="scoresContainer">
+                <div class="empty-state">
+                    <div class="empty-icon">📭</div>
+                    <div class="empty-title">ยังไม่มีข้อมูล</div>
+                    <div class="empty-desc">กรุณากลับไปที่หน้าการตรวจจับเพื่อเริ่มวิเคราะห์</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export Section -->
+        <div class="export-section">
+            <button class="btn btn-primary" onclick="exportPDF()">📥 ดาวน์โหลด PDF</button>
+            <button class="btn btn-secondary" onclick="printPage()">🖨️ พิมพ์</button>
+            <button class="btn btn-danger" onclick="clearData()">🗑️ ลบข้อมูล</button>
+            <button class="btn btn-secondary" onclick="backToDetection()">← กลับไปตรวจจับ</button>
+        </div>
+    </div>
+
+    <script>
+        // ======================================================
+        // Data Management
+        // ======================================================
+        const PLAY_LABEL = {
+            sitting:  "นั่งเล่น",
+            standing: "ยืนเล่น",
+        };
+        const OBJ_LABEL = {
+            attention:   "ฝึกสมาธิและความนิ่ง",
+            fine_motor:  "กล้ามเนื้อมัดเล็ก",
+            gross_motor: "กล้ามเนื้อมัดใหญ่",
+        };
+
+        // Retrieve data from sessionStorage (set by index.html)
+        function getScoresData() {
+            const dataStr = sessionStorage.getItem('sessionScores');
+            if (!dataStr) return null;
+            try {
+                return JSON.parse(dataStr);
+            } catch {
+                return null;
+            }
+        }
+
+        function getSessionParams() {
+            return {
+                playMethod: sessionStorage.getItem('playMethod') || 'standing',
+                objective: sessionStorage.getItem('objective') || 'attention',
+                gameName: sessionStorage.getItem('gameName') || 'Unknown Game',
+            };
+        }
+
+        // ======================================================
+        // Render Dashboard
+        // ======================================================
+        function renderDashboard() {
+            const data = getScoresData();
+            const params = getSessionParams();
+
+            // Update header
+            document.getElementById('gameName').textContent = decodeURIComponent(params.gameName);
+            document.getElementById('playMethod').textContent = PLAY_LABEL[params.playMethod] || params.playMethod;
+            document.getElementById('objective').textContent = OBJ_LABEL[params.objective] || params.objective;
+            document.getElementById('timestamp').textContent = new Date().toLocaleString('th-TH');
+
+            if (!data || data.length === 0) {
+                document.getElementById('scoresContainer').innerHTML = `
+                    <div class="empty-state" style="grid-column: 1 / -1">
+                        <div class="empty-icon">📭</div>
+                        <div class="empty-title">ยังไม่มีข้อมูลคะแนน</div>
+                        <div class="empty-desc">กรุณากลับไปที่หน้าการตรวจจับเพื่อเริ่มวิเคราะห์</div>
+                    </div>
+                `;
+                updateSummaryStats([]);
+                return;
+            }
+
+            // Render score cards
+            const html = data.map((child, idx) => {
+                const avgScore = Math.round(
+                    (child.scores.attention + child.scores.fine_motor + child.scores.gross_motor) / 3
+                );
+                const initials = child.name.substring(0, 2).toUpperCase();
+                
+                return `
+                    <div class="score-card">
+                        <div class="score-card-header">
+                            <div class="score-avatar" style="background: ${child.color}">${initials}</div>
+                            <div class="score-card-title">
+                                <div class="score-card-name">${escapeHtml(child.name)}</div>
+                                <div class="score-card-id">ID: ${child.track_id}</div>
+                            </div>
+                        </div>
+                        <div class="score-main">${avgScore}</div>
+                        <div class="score-breakdown">
+                            <div class="breakdown-item">
+                                <div class="breakdown-label">
+                                    <span>สมาธิและความนิ่ง</span>
+                                    <span class="breakdown-label-right">${child.scores.attention}</span>
+                                </div>
+                                <div class="breakdown-bar">
+                                    <div class="breakdown-fill" style="width: ${child.scores.attention}%; background: linear-gradient(90deg, var(--primary), var(--accent-green))"></div>
+                                </div>
+                            </div>
+                            <div class="breakdown-item">
+                                <div class="breakdown-label">
+                                    <span>กล้ามเนื้อมัดเล็ก</span>
+                                    <span class="breakdown-label-right">${child.scores.fine_motor}</span>
+                                </div>
+                                <div class="breakdown-bar">
+                                    <div class="breakdown-fill" style="width: ${child.scores.fine_motor}%; background: linear-gradient(90deg, var(--accent-pink), var(--accent-green))"></div>
+                                </div>
+                            </div>
+                            <div class="breakdown-item">
+                                <div class="breakdown-label">
+                                    <span>กล้ามเนื้อมัดใหญ่</span>
+                                    <span class="breakdown-label-right">${child.scores.gross_motor}</span>
+                                </div>
+                                <div class="breakdown-bar">
+                                    <div class="breakdown-fill" style="width: ${child.scores.gross_motor}%; background: linear-gradient(90deg, var(--accent-green), var(--primary))"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('scoresContainer').innerHTML = html;
+            updateSummaryStats(data);
+        }
+
+        function updateSummaryStats(data) {
+            if (!data || data.length === 0) {
+                document.getElementById('totalParticipants').textContent = '0';
+                document.getElementById('averageScore').textContent = '0';
+                document.getElementById('maxScore').textContent = '0';
+                document.getElementById('minScore').textContent = '0';
+                return;
+            }
+
+            const scores = data.map(child => 
+                Math.round((child.scores.attention + child.scores.fine_motor + child.scores.gross_motor) / 3)
+            );
+
+            document.getElementById('totalParticipants').textContent = data.length;
+            document.getElementById('averageScore').textContent = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+            document.getElementById('maxScore').textContent = Math.max(...scores);
+            document.getElementById('minScore').textContent = Math.min(...scores);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ======================================================
+        // Export & Actions
+        // ======================================================
+        function exportPDF() {
+            alert('PDF Export feature coming soon! (Requires jsPDF library)');
+            // In production, implement with jsPDF or similar
+        }
+
+        function printPage() {
+            window.print();
+        }
+
+        function clearData() {
+            if (confirm('คุณแน่ใจหรือไม่ที่จะลบข้อมูลทั้งหมด?')) {
+                sessionStorage.removeItem('sessionScores');
+                sessionStorage.removeItem('playMethod');
+                sessionStorage.removeItem('objective');
+                sessionStorage.removeItem('gameName');
+                renderDashboard();
+            }
+        }
+
+        function backToDetection() {
+            window.location.href = 'index.html';
+        }
+
+        // ======================================================
+        // Init
+        // ======================================================
+        document.addEventListener('DOMContentLoaded', () => {
+            renderDashboard();
+        });
+    </script>
+</body>
+</html>
