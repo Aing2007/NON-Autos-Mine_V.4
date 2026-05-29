@@ -806,23 +806,35 @@ document.querySelectorAll(".setting-chips").forEach(group => {
 // ============================================================
 // SCORE PANEL
 // ============================================================
-const scoreData = {};   // track_id → { color, scores }
+// scoreData เก็บข้อมูลสะสมของทุก ID ที่เคยตรวจพบ
+// ไม่มีการลบข้อมูลเมื่อ ID หายไปจาก frame
+const scoreData = {};   // track_id → { color, name, scores, lastSeen }
 
 function updateScoreData() {
+    const now = Date.now();
     for (const child of trackedChildren) {
         const id = child.track_id ?? "?";
+
         if (!scoreData[id]) {
+            // สร้างรายการใหม่เฉพาะครั้งแรกที่พบ ID นี้
             scoreData[id] = {
                 color: getIdColor(child.track_id),
                 name: child.name,
-                scores: { attention: 0, fine_motor: 0, gross_motor: 0 }
+                scores: { attention: 0, fine_motor: 0, gross_motor: 0 },
+                lastSeen: now,
             };
         }
-        // Update scores from server
+
+        // อัปเดตคะแนนล่าสุดจาก server (ไม่รีเซ็ต — เขียนทับเฉพาะเมื่อมีค่าใหม่)
         if (child.scores) {
-            scoreData[id].scores = child.scores;
+            scoreData[id].scores = { ...child.scores };
         }
+
+        // อัปเดตชื่อและเวลาที่เห็นล่าสุด
+        scoreData[id].name = child.name || scoreData[id].name;
+        scoreData[id].lastSeen = now;
     }
+    // หมายเหตุ: ไม่มีการลบ ID เก่าออก → คะแนนทุกคนอยู่ครบตลอดเวลา
 }
 
 function renderScorePanel() {
@@ -833,17 +845,26 @@ function renderScorePanel() {
         list.innerHTML = '<div class="score-empty">ยังไม่มีข้อมูลผู้เข้าร่วม<br>รอให้ตรวจจับ Human…</div>';
         return;
     }
+
+    // รวบรวม ID ที่กำลังตรวจพบใน frame ปัจจุบัน
+    const activeIds = new Set(trackedChildren.map(c => String(c.track_id ?? "?")));
+
     list.innerHTML = ids.map(id => {
         const d = scoreData[id];
         const scores = d.scores;
         const avgScore = Math.round(
             (scores.attention + scores.fine_motor + scores.gross_motor) / 3
         );
+        const isActive = activeIds.has(String(id));
+        const statusDot = isActive
+            ? `<span title="กำลังตรวจจับ" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#69ff47;margin-left:4px;flex-shrink:0"></span>`
+            : `<span title="ไม่พบในเฟรมปัจจุบัน" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#888;margin-left:4px;flex-shrink:0"></span>`;
         return `
         <div class="score-card">
           <div class="score-card-header">
             <span class="score-id-dot" style="background:${d.color}"></span>
             <span class="score-id-label">${d.name}</span>
+            ${statusDot}
             <span class="score-badge">${avgScore} pt</span>
           </div>
           <div class="score-breakdown">
@@ -1004,10 +1025,12 @@ function drawLineChart(canvas, series, opts = {}) {
 const goDashboardBtn = document.getElementById("goDashboardBtn");
 
 function exportToDashboard() {
-    // Prepare data with colors
-    const dataForExport = trackedChildren.map(child => ({
-        ...child,
-        color: idColors[child.track_id] || COLOR_PALETTE[0]
+    // ใช้ scoreData (ข้อมูลสะสมทุก ID) แทน trackedChildren (เฉพาะที่เห็นใน frame ปัจจุบัน)
+    const dataForExport = Object.entries(scoreData).map(([id, d]) => ({
+        track_id: id,
+        name: d.name,
+        color: d.color,
+        scores: { ...d.scores },
     }));
 
     // Save to sessionStorage

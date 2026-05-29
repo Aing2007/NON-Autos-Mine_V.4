@@ -675,23 +675,52 @@
     }
 
     // ======================================================
+    // Allowed participants
+    // ======================================================
+    const ALLOWED_NAMES = ['Ying', 'New', 'Tutor'];
+
+    function filterAllowedData(data) {
+        if (!data) return [];
+        return data.filter(child =>
+            ALLOWED_NAMES.some(name =>
+                child.name.trim().toLowerCase() === name.toLowerCase()
+            )
+        );
+    }
+
+    // ======================================================
     // Render Dashboard
     // ======================================================
     function renderDashboard() {
-        const data   = getScoresData();
-        const params = getSessionParams();
+        const rawData = getScoresData();
+        const params  = getSessionParams();
 
         document.getElementById('gameName').textContent    = decodeURIComponent(params.gameName);
         document.getElementById('playMethod').textContent  = PLAY_LABEL[params.playMethod] || params.playMethod;
         document.getElementById('objective').textContent   = OBJ_LABEL[params.objective]   || params.objective;
         document.getElementById('timestamp').textContent   = new Date().toLocaleString('th-TH');
 
-        if (!data || data.length === 0) {
+        // กรองเฉพาะข้อมูลของ Ying, New, Tutor
+        const data = filterAllowedData(rawData);
+
+        if (!rawData || rawData.length === 0) {
             document.getElementById('scoresContainer').innerHTML = `
                 <div class="empty-state">
                     <div class="empty-icon">📭</div>
                     <div class="empty-title">ยังไม่มีข้อมูลคะแนน</div>
                     <div class="empty-desc">กรุณากลับไปที่หน้าการตรวจจับเพื่อเริ่มวิเคราะห์</div>
+                </div>`;
+            updateSummaryStats([]);
+            return;
+        }
+
+        // ถ้าไม่มีข้อมูลของ Ying, New หรือ Tutor เลย → ไม่แสดง Dashboard
+        if (data.length === 0) {
+            document.getElementById('scoresContainer').innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">🚫</div>
+                    <div class="empty-title">ไม่พบข้อมูลที่ได้รับอนุญาต</div>
+                    <div class="empty-desc">Dashboard จะแสดงผลเฉพาะข้อมูลของ Ying, New และ Tutor เท่านั้น</div>
                 </div>`;
             updateSummaryStats([]);
             return;
@@ -734,7 +763,7 @@
         }).join('');
 
         document.getElementById('scoresContainer').innerHTML = html;
-        updateSummaryStats(data);
+        updateSummaryStats(data);  // ใช้ data ที่กรองแล้ว
     }
 
     function updateSummaryStats(data) {
